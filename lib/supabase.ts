@@ -1,16 +1,17 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Use process.env as defined in vite.config.ts to avoid ImportMeta errors
-const SUPABASE_URL = (process.env as any).VITE_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = (process.env as any).VITE_SUPABASE_ANON_KEY || '';
+// Vite의 define 설정을 통해 process.env로 주입된 변수를 사용합니다.
+const env = process.env as any;
+const SUPABASE_URL = env.VITE_SUPABASE_URL || env.SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY || '';
 
 export const isSupabaseConfigured = 
   SUPABASE_URL !== '' && 
   SUPABASE_ANON_KEY !== '';
 
 if (!isSupabaseConfigured) {
-  console.log('Supabase가 설정되지 않았습니다. 로컬 스토리지 모드로 동작합니다.');
+  console.warn('Supabase 설정이 감지되지 않았습니다. 로컬 저장소 모드로 전환합니다.');
 }
 
 export const supabase = createClient(
