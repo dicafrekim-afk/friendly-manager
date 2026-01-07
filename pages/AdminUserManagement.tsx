@@ -40,7 +40,8 @@ const AdminUserManagement: React.FC = () => {
     await dataService.updateUser(editingUser.id, {
       role: editingUser.role,
       totalLeave: editingUser.totalLeave,
-      usedLeave: editingUser.usedLeave
+      usedLeave: editingUser.usedLeave,
+      status: editingUser.status // 상태도 수정 가능하도록 유지
     });
     setEditingUser(null);
     await fetchUsers();
@@ -114,9 +115,26 @@ const AdminUserManagement: React.FC = () => {
 
             <div className="flex gap-2">
               {u.status === 'PENDING' ? (
-                <button onClick={(e) => handleStatusChange(u.id, 'APPROVED', e)} className="flex-1 py-3 bg-indigo-600 text-white text-[10px] font-black rounded-xl">승인하기</button>
+                <div className="flex gap-2 w-full">
+                  <button 
+                    onClick={(e) => handleStatusChange(u.id, 'APPROVED', e)} 
+                    className="flex-1 py-3 bg-indigo-600 text-white text-[10px] font-black rounded-xl hover:bg-indigo-700 transition-colors"
+                  >
+                    승인
+                  </button>
+                  <button 
+                    onClick={(e) => handleStatusChange(u.id, 'REJECTED', e)} 
+                    className="flex-1 py-3 bg-slate-100 text-slate-500 text-[10px] font-black rounded-xl hover:bg-red-50 hover:text-red-600 transition-all"
+                  >
+                    반려
+                  </button>
+                </div>
               ) : (
-                <div className="flex-1 flex items-center justify-center gap-1 py-3 bg-emerald-50 text-emerald-600 text-[10px] font-black rounded-xl">승인 완료</div>
+                <div className={`flex-1 flex items-center justify-center gap-1 py-3 text-[10px] font-black rounded-xl ${
+                  u.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
+                }`}>
+                  {u.status === 'APPROVED' ? '승인 완료' : '반려됨'}
+                </div>
               )}
             </div>
           </div>

@@ -112,10 +112,14 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
         
-        <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 pb-2">
-          <div className="min-w-[800px] grid grid-cols-7 gap-px bg-slate-100 border border-slate-100 rounded-3xl overflow-hidden">
-            {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(d => <div key={d} className="bg-slate-50/80 py-4 text-center text-[10px] font-black text-slate-400 tracking-widest">{d}</div>)}
-            {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`e-${i}`} className="bg-slate-50/20 h-24 md:h-32"></div>)}
+        <div className="overflow-hidden -mx-4 px-4 pb-2">
+          <div className="w-full grid grid-cols-7 gap-px bg-slate-100 border border-slate-100 rounded-2xl md:rounded-3xl overflow-hidden">
+            {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(d => (
+              <div key={d} className="bg-slate-50/80 py-2 md:py-4 text-center text-[8px] md:text-[10px] font-black text-slate-400 tracking-widest border-b border-slate-100">
+                {d}
+              </div>
+            ))}
+            {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`e-${i}`} className="bg-slate-50/20 h-16 sm:h-24 md:h-32"></div>)}
             {Array.from({ length: daysInMonth }).map((_, i) => {
               const day = i + 1;
               const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -123,16 +127,18 @@ const Dashboard: React.FC = () => {
               const dayMeetings = allMeetings.filter(m => m.startTime.startsWith(dateStr));
               const isToday = new Date().toDateString() === new Date(viewYear, viewMonth, day).toDateString();
               return (
-                <div key={i} className="bg-white h-24 md:h-32 p-2 flex flex-col gap-1 border-b border-r border-slate-50 last:border-r-0 hover:bg-slate-50 transition-colors">
-                  <span className={`text-[11px] font-black ${isToday ? 'bg-indigo-600 text-white w-6 h-6 rounded-lg flex items-center justify-center' : 'text-slate-400'}`}>{day}</span>
-                  <div className="space-y-1 overflow-y-auto max-h-[60px] md:max-h-[80px] scrollbar-hide">
+                <div key={i} className="bg-white h-16 sm:h-24 md:h-32 p-1 md:p-2 flex flex-col gap-1 border-b border-r border-slate-50 last:border-r-0 hover:bg-slate-50 transition-colors">
+                  <span className={`text-[9px] md:text-[11px] font-black ${isToday ? 'bg-indigo-600 text-white w-4 h-4 md:w-6 md:h-6 rounded md:rounded-lg flex items-center justify-center' : 'text-slate-400'}`}>
+                    {day}
+                  </span>
+                  <div className="space-y-0.5 md:space-y-1 overflow-y-auto max-h-[40px] md:max-h-[80px] scrollbar-hide">
                     {dayEvents.map((ev, idx) => (
-                      <div key={`ev-${idx}`} className={`text-[8px] md:text-[9px] px-2 py-1 rounded-md font-bold truncate ${LEAVE_TYPE_COLORS[ev.type].split(' border')[0]}`}>
+                      <div key={`ev-${idx}`} className={`text-[7px] md:text-[9px] px-1 md:px-2 py-0.5 md:py-1 rounded md:rounded-md font-bold truncate leading-tight ${LEAVE_TYPE_COLORS[ev.type].split(' border')[0]}`}>
                         {ev.userName}
                       </div>
                     ))}
                     {dayMeetings.map((mt, idx) => (
-                      <div key={`mt-${idx}`} className="text-[8px] md:text-[9px] px-2 py-1 rounded-md bg-violet-600 text-white truncate font-bold">
+                      <div key={`mt-${idx}`} className="text-[7px] md:text-[9px] px-1 md:px-2 py-0.5 md:py-1 rounded md:rounded-md bg-violet-600 text-white truncate font-bold leading-tight">
                         🎥 {mt.title}
                       </div>
                     ))}
