@@ -1,40 +1,32 @@
 # Friendly Leave & Trip Manager 🚀
 
-친절한 휴가 및 출장 관리 앱입니다. 이 앱은 클라우드 동기화를 위해 Supabase를 사용합니다.
+친절한 휴가 및 출장 관리 앱입니다. 이 앱은 클라우드 동기화를 위해 Supabase를 사용하며 AI 기능을 위해 Gemini를 사용합니다.
 
-### 🔑 Supabase 키 (VITE_SUPABASE_ANON_KEY) 찾는 방법
+### 🔑 환경 변수 설정 (Vercel)
 
-1.  **Supabase 대시보드** ([app.supabase.com](https://app.supabase.com))에 접속하여 프로젝트를 선택합니다.
-2.  화면 왼쪽 맨 아래에 있는 **톱니바퀴 아이콘 (Settings)**을 클릭합니다.
-3.  나타나는 사이드바 메뉴에서 **API** 항목을 클릭합니다.
-4.  **Project API keys** 섹션을 찾으세요.
-5.  **`anon` `public`** 이라고 적힌 행을 찾습니다.
-    - 그 옆에 있는 `eyJhbG...`로 시작하는 **매우 긴 문자열**이 바로 `VITE_SUPABASE_ANON_KEY`입니다.
-    - 우측의 **[Copy]** 버튼을 눌러 복사하세요.
+Vercel의 **Settings > Environment Variables** 메뉴에서 다음 세 가지를 반드시 등록해야 합니다:
 
-### 🌐 Vercel 환경 변수 등록 시 주의사항
-
-Vercel의 **Settings > Environment Variables** 메뉴에서 다음 세 가지를 등록해야 합니다:
-
-| Key (이름) | Value (값) |
-| :--- | :--- |
-| `VITE_SUPABASE_URL` | Supabase API 설정의 **Project URL** (`https://...`) |
-| `VITE_SUPABASE_ANON_KEY` | 위에서 복사한 **anon public** 키 |
-| `API_KEY` | Gemini API 키 (VITE_ 접두사 없이 등록) |
+| Key (이름) | Value (값) | 설명 |
+| :--- | :--- | :--- |
+| `API_KEY` | Gemini API Key | `VITE_` 접두사 없이 등록하세요. |
+| `VITE_SUPABASE_URL` | Supabase Project URL | Supabase API 설정에서 확인 가능합니다. |
+| `VITE_SUPABASE_ANON_KEY` | Supabase Anon Key | Supabase API 설정의 `anon` `public` 키입니다. |
 
 ---
 
-### 🔄 중요: 환경 변수 등록 후 "재배포" 필수!
-환경 변수만 저장한다고 앱에 바로 적용되지 않습니다. **반드시 아래 순서로 재배포 하세요.**
+### 🔄 중요: 재배포 가이드
 
-1. Vercel 프로젝트의 **Deployments** 탭 클릭
-2. 리스트 맨 위(최신) 항목 우측의 **점 세개 [...]** 버튼 클릭
-3. **Redeploy** 클릭
-4. **"Use existing Build Cache" 체크박스를 반드시 해제** (중요!)
-5. 다시 한번 **Redeploy** 버튼 클릭
+환경 변수를 수정한 후에는 반드시 **기존 캐시를 무시하고 재배포**해야 합니다.
+
+1. Vercel 프로젝트 대시보드의 **Deployments** 탭으로 이동합니다.
+2. 최신 배포 항목 우측의 **점 세개 [...]** 버튼을 클릭합니다.
+3. **Redeploy**를 클릭합니다.
+4. 나타나는 팝업에서 **"Use existing Build Cache" 체크박스를 반드시 해제**하세요.
+5. 다시 한번 **Redeploy** 버튼을 누르면 새로운 환경 변수가 반영된 빌드가 시작됩니다.
 
 ---
 
-### 💡 여전히 "Local Storage Mode"라고 뜨나요?
-- Vercel 설정에서 변수 이름 앞에 `VITE_`가 정확히 붙었는지 확인하세요 (단, Gemini API용 `API_KEY`는 제외).
-- `index.html`에 `importmap` 코드가 남아있는지 확인하세요 (이 코드는 삭제되어야 합니다).
+### 💡 확인 방법
+배포 완료 후 사이트에 접속하여 브라우저 개발자 도구(F12)의 **Console** 탭을 확인하세요.
+- `✅ Cloud DB Connected` 메시지가 보이면 정상입니다.
+- `⚠️ Local Storage Mode`가 보인다면 환경 변수 이름(VITE_ 접두사 등)을 다시 확인해 주세요.
