@@ -17,7 +17,13 @@ export const dataService = {
   async getUsers(): Promise<User[]> {
     if (isSupabaseConfigured) {
       try {
-        const { data, error } = await supabase.from('users').select('*').order('joinDate', { ascending: false });
+        const { data, error, status } = await supabase.from('users').select('*').order('joinDate', { ascending: false });
+        
+        // 404 에러는 테이블이 없다는 뜻
+        if (status === 404) {
+          console.warn('⚠️ [Supabase] "users" 테이블이 존재하지 않습니다. SQL Editor에서 테이블을 생성해주세요.');
+          throw new Error('Table not found');
+        }
         if (error) throw error;
         
         if (data && data.length > 0) return data as User[];
@@ -27,7 +33,7 @@ export const dataService = {
         await this.register(INITIAL_ADMIN);
         return [INITIAL_ADMIN];
       } catch (e) {
-        console.error('❌ Supabase 연결 실패:', e);
+        console.error('❌ Supabase 조회 실패:', e);
       }
     }
     
@@ -85,7 +91,11 @@ export const dataService = {
   async getRequests(): Promise<LeaveRequest[]> {
     if (isSupabaseConfigured) {
       try {
-        const { data, error } = await supabase.from('leave_requests').select('*').order('createdAt', { ascending: false });
+        const { data, error, status } = await supabase.from('leave_requests').select('*').order('createdAt', { ascending: false });
+        if (status === 404) {
+          console.warn('⚠️ [Supabase] "leave_requests" 테이블이 없습니다.');
+          throw new Error('Table not found');
+        }
         if (!error && data) return data as LeaveRequest[];
       } catch (e) {
         console.warn('DB 요청 목록 조회 실패');
@@ -143,7 +153,11 @@ export const dataService = {
   async getMeetings(): Promise<Meeting[]> {
     if (isSupabaseConfigured) {
       try {
-        const { data, error } = await supabase.from('meetings').select('*');
+        const { data, error, status } = await supabase.from('meetings').select('*');
+        if (status === 404) {
+          console.warn('⚠️ [Supabase] "meetings" 테이블이 없습니다.');
+          throw new Error('Table not found');
+        }
         if (!error && data) return data as Meeting[];
       } catch (e) {
         console.warn('DB 회의 목록 조회 실패');
