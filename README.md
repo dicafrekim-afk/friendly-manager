@@ -1,20 +1,16 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
 
-# Run and deploy your AI Studio app
+# Friendly Leave & Trip Manager 🚀
 
-This contains everything you need to run your app locally.
+친절한 휴가 및 출장 관리 앱입니다.
 
-View your app in AI Studio: https://ai.studio/apps/drive/1IIwnostUVEoFWZ5qbhh0_0Bd92BTin07
+### 주요 기능
+- 휴가 및 출장 신청 (AI 사유 다듬기 지원)
+- 팀 타임라인 캘린더 (실시간 일정 확인)
+- 회의 예약 및 부재자 자동 감지
+- 관리자용 팀원 및 신청 승인 관리
 
-## Run Locally
-
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### 설정 방법
+Vercel 배포 시 다음 환경 변수가 필요합니다:
+1. `API_KEY`: Google Gemini API 키
+2. `SUPABASE_URL`: Supabase 프로젝트 URL
+3. `SUPABASE_ANON_KEY`: Supabase 익명 API 키

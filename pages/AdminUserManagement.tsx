@@ -2,11 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import { User, Role } from '../types';
 import { dataService } from '../services/dataService';
+import { isSupabaseConfigured } from '../lib/supabase';
 
 const AdminUserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -18,6 +20,13 @@ const AdminUserManagement: React.FC = () => {
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  const handleCopyLink = () => {
+    const url = window.location.origin;
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const handleStatusChange = async (id: string, newStatus: 'APPROVED' | 'REJECTED', e: React.MouseEvent) => {
     e.stopPropagation();
@@ -48,8 +57,53 @@ const AdminUserManagement: React.FC = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-10 animate-in fade-in duration-700 pb-20">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-4">
+    <div className="max-w-7xl mx-auto space-y-10 animate-in fade-in duration-700 pb-20 px-4">
+      {/* Database Connection Status Bar */}
+      <div className="flex items-center justify-center">
+        {isSupabaseConfigured ? (
+          <div className="flex items-center gap-3 px-6 py-3 bg-emerald-50 border border-emerald-100 rounded-full">
+            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+            <span className="text-xs font-black text-emerald-700 uppercase tracking-widest">Database: Cloud (Supabase) Connected</span>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-3 px-8 py-4 bg-amber-50 border border-amber-100 rounded-[24px]">
+            <div className="flex items-center gap-3">
+              <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+              <span className="text-xs font-black text-amber-700 uppercase tracking-widest">Database: Local Storage Mode</span>
+            </div>
+            <p className="text-[10px] text-amber-600 font-medium text-center">
+              현재 브라우저에만 데이터가 저장됩니다. 팀 공유를 위해 Vercel에 환경 변수를 설정하세요.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Invite Section */}
+      <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-[40px] p-8 md:p-12 text-white shadow-2xl relative overflow-hidden">
+        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
+          <div className="max-w-xl">
+            <h2 className="text-3xl font-black mb-4 tracking-tight">팀원들을 초대하세요! 🚀</h2>
+            <p className="text-slate-400 font-medium leading-relaxed">
+              아래 주소를 팀원들에게 공유하고 가입을 요청하세요. <br className="hidden md:block"/>
+              팀원들이 가입하면 이 페이지 하단에서 승인할 수 있습니다.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 w-full md:w-auto">
+            <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md p-2 pl-6 rounded-2xl border border-white/10 min-w-[300px]">
+              <span className="text-xs font-mono text-slate-300 truncate max-w-[180px]">{window.location.origin}</span>
+              <button 
+                onClick={handleCopyLink}
+                className={`ml-auto px-6 py-3 rounded-xl font-black text-xs transition-all ${copied ? 'bg-emerald-500 text-white' : 'bg-white text-slate-900 hover:bg-indigo-50'}`}
+              >
+                {copied ? '복사됨!' : '링크 복사'}
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+      </div>
+
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <h1 className="text-4xl font-black text-slate-900 tracking-tight">팀원 관리</h1>
           <p className="text-slate-400 font-medium mt-2">전체 팀원의 프로필, 권한 및 연차 현황을 관리합니다.</p>
@@ -111,8 +165,6 @@ const AdminUserManagement: React.FC = () => {
                 </button>
               </div>
             </div>
-            
-            <div className="absolute top-[-20px] right-[-20px] w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl group-hover:bg-indigo-500/10 transition-colors"></div>
           </div>
         ))}
       </div>
@@ -138,9 +190,6 @@ const AdminUserManagement: React.FC = () => {
                 <div>
                   <p className="text-2xl font-black text-slate-900">{editingUser.name}</p>
                   <p className="text-sm font-bold text-slate-400">{editingUser.email}</p>
-                  <div className="mt-2 inline-block px-3 py-1 bg-white text-indigo-600 text-[10px] font-black rounded-full shadow-sm border border-indigo-100">
-                    ID: {editingUser.id}
-                  </div>
                 </div>
               </div>
 

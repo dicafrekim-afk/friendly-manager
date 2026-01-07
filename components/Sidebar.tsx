@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { User } from '../types';
 
@@ -9,6 +9,14 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ user, logout }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(window.location.origin);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const navItems = [
     { to: '/', label: '대시보드', icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /> },
     { to: '/apply', label: '휴가/출장 신청', icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /> },
@@ -80,7 +88,16 @@ const Sidebar: React.FC<SidebarProps> = ({ user, logout }) => {
         )}
       </nav>
 
-      <div className="pt-8 border-t border-slate-50">
+      <div className="pt-8 border-t border-slate-50 space-y-4">
+        <button 
+          onClick={handleCopyLink}
+          className={`w-full flex items-center gap-4 px-6 py-4 rounded-[20px] transition-all font-bold text-sm ${copied ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600'}`}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+          </svg>
+          {copied ? '복사 완료!' : '팀 초대 링크'}
+        </button>
         <button
           onClick={logout}
           className="flex items-center gap-4 px-6 py-4 w-full rounded-[20px] text-slate-400 hover:bg-red-50 hover:text-red-600 transition-all duration-300"
