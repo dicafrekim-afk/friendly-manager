@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { User } from '../types';
+import { dataService } from '../services/dataService';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -10,23 +11,31 @@ interface LoginProps {
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
     
-    const usersJson = localStorage.getItem('friendly_users');
-    const users: User[] = usersJson ? JSON.parse(usersJson) : [];
-    
-    const user = users.find(u => u.email === email);
+    try {
+      // ⚠️ 클라우드 DB에 연결되어 있다면 DB에서 사용자 정보를 가져옵니다.
+      const users = await dataService.getUsers();
+      const user = users.find(u => u.email === email);
 
-    if (user) {
-      onLogin(user);
-      navigate('/');
-    } else {
-      setError('등록되지 않은 이메일입니다.');
+      if (user) {
+        onLogin(user);
+        navigate('/');
+      } else {
+        setError('등록되지 않은 이메일입니다. 이메일을 확인하거나 회원가입을 해주세요.');
+      }
+    } catch (err) {
+      setError('데이터를 불러오는 중 오류가 발생했습니다.');
+      console.error(err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -54,11 +63,12 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               <label className="text-sm font-semibold text-slate-700 ml-1">이메일 주소</label>
               <input
                 required
+                disabled={isLoading}
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@company.com"
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all disabled:opacity-50"
               />
             </div>
             <div className="space-y-2">
@@ -68,19 +78,22 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               </div>
               <input
                 required
+                disabled={isLoading}
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all disabled:opacity-50"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all transform hover:-translate-y-0.5"
+              disabled={isLoading}
+              className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-2 disabled:opacity-70 disabled:hover:translate-y-0"
             >
-              로그인
+              {isLoading && <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>}
+              {isLoading ? '연결 중...' : '로그인'}
             </button>
           </form>
 

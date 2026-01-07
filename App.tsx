@@ -17,22 +17,7 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
-    // 1. Initialize Data Storage if empty
-    const users = localStorage.getItem('friendly_users');
-    if (!users) {
-      const initialAdmin: User = {
-        id: 'admin-001',
-        email: 'dicafrekim@naver.com',
-        name: '최고관리자',
-        role: 'ADMIN',
-        status: 'APPROVED',
-        totalLeave: 25,
-        usedLeave: 0,
-        joinDate: new Date().toISOString().split('T')[0]
-      };
-      localStorage.setItem('friendly_users', JSON.stringify([initialAdmin]));
-    }
-
+    // 세션 유지 확인
     const savedUser = localStorage.getItem('friendly_current_session');
     if (savedUser) {
       setCurrentUser(JSON.parse(savedUser));

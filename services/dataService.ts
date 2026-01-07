@@ -2,50 +2,79 @@
 import { User, LeaveRequest, Status, Notification, Meeting } from '../types';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
-/**
- * 이 서비스는 Supabase 연동을 시도하되, 
- * 연결이 불가능하면 즉시 localStorage를 사용하여 앱이 멈추지 않게 합니다.
- */
+const INITIAL_ADMIN: User = {
+  id: 'admin-001',
+  email: 'dicafrekim@naver.com',
+  name: '최고관리자',
+  role: 'ADMIN',
+  status: 'APPROVED',
+  totalLeave: 25,
+  usedLeave: 0,
+  joinDate: new Date().toISOString().split('T')[0]
+};
+
 export const dataService = {
   // --- User Operations ---
   async getUsers(): Promise<User[]> {
     if (isSupabaseConfigured) {
       try {
         const { data, error } = await supabase.from('users').select('*').order('joinDate', { ascending: false });
-        if (!error && data) return data as User[];
+        if (error) {
+          console.error('❌ [Supabase Fetch Error]:', error.message);
+          throw error;
+        }
+        
+        // 만약 DB가 연결되었는데 사용자 테이블이 완전히 비어있다면 초기 관리자 생성
+        if (data && data.length === 0) {
+          console.log('ℹ️ DB에 사용자가 없어 초기 관리자를 생성합니다.');
+          await this.register(INITIAL_ADMIN);
+          return [INITIAL_ADMIN];
+        }
+        
+        if (data) return data as User[];
       } catch (e) {
-        console.warn('Supabase fetch failed, using local storage.');
+        console.warn('⚠️ DB 접근 불가 - 로컬 저장소를 사용합니다.');
       }
     }
+    
+    // 로컬 저장소 폴백
     const localData = localStorage.getItem('friendly_users');
-    return localData ? JSON.parse(localData) : [];
+    let users = localData ? JSON.parse(localData) : [];
+    
+    // 로컬에도 아무것도 없다면 초기 관리자 추가
+    if (users.length === 0) {
+      users = [INITIAL_ADMIN];
+      localStorage.setItem('friendly_users', JSON.stringify(users));
+    }
+    return users;
   },
 
   async register(user: User): Promise<void> {
     if (isSupabaseConfigured) {
       try {
-        await supabase.from('users').insert([user]);
+        const { error } = await supabase.from('users').insert([user]);
+        if (error) console.error('❌ [Register Error]:', error.message);
       } catch (e) {
-        console.warn('DB register failed');
+        console.warn('DB 등록 실패');
       }
     }
     const users = await this.getUsers();
-    localStorage.setItem('friendly_users', JSON.stringify([...users, user]));
+    localStorage.setItem('friendly_users', JSON.stringify([...users.filter(u => u.id !== user.id), user]));
   },
 
   async updateUser(userId: string, updates: Partial<User>): Promise<void> {
     if (isSupabaseConfigured) {
       try {
-        await supabase.from('users').update(updates).eq('id', userId);
+        const { error } = await supabase.from('users').update(updates).eq('id', userId);
+        if (error) console.error('❌ [Update Error]:', error.message);
       } catch (e) {
-        console.warn('DB update failed');
+        console.warn('DB 업데이트 실패');
       }
     }
     const users = await this.getUsers();
     const updated = users.map(u => u.id === userId ? { ...u, ...updates } : u);
     localStorage.setItem('friendly_users', JSON.stringify(updated));
 
-    // 세션 업데이트 (로그인한 본인 정보를 수정한 경우)
     const sessionStr = localStorage.getItem('friendly_current_session');
     if (sessionStr) {
       const sessionUser = JSON.parse(sessionStr) as User;
@@ -64,9 +93,10 @@ export const dataService = {
     if (isSupabaseConfigured) {
       try {
         const { data, error } = await supabase.from('leave_requests').select('*').order('createdAt', { ascending: false });
-        if (!error && data) return data as LeaveRequest[];
+        if (error) throw error;
+        if (data) return data as LeaveRequest[];
       } catch (e) {
-        console.warn('Supabase fetch failed');
+        console.warn('DB 요청 목록 조회 실패');
       }
     }
     const localData = localStorage.getItem('friendly_requests');
@@ -76,21 +106,23 @@ export const dataService = {
   async createRequest(request: LeaveRequest): Promise<void> {
     if (isSupabaseConfigured) {
       try {
-        await supabase.from('leave_requests').insert([request]);
+        const { error } = await supabase.from('leave_requests').insert([request]);
+        if (error) console.error('❌ [Request Create Error]:', error.message);
       } catch (e) {
-        console.warn('DB create request failed');
+        console.warn('DB 요청 생성 실패');
       }
     }
     const reqs = await this.getRequests();
-    localStorage.setItem('friendly_requests', JSON.stringify([...reqs, request]));
+    localStorage.setItem('friendly_requests', JSON.stringify([...reqs.filter(r => r.id !== request.id), request]));
   },
 
   async updateRequestStatus(requestId: string, status: Status): Promise<void> {
     if (isSupabaseConfigured) {
       try {
-        await supabase.from('leave_requests').update({ status }).eq('id', requestId);
+        const { error } = await supabase.from('leave_requests').update({ status }).eq('id', requestId);
+        if (error) throw error;
       } catch (e) {
-        console.warn('DB update request status failed');
+        console.warn('DB 상태 업데이트 실패');
       }
     }
     const reqs = await this.getRequests();
@@ -120,9 +152,10 @@ export const dataService = {
     if (isSupabaseConfigured) {
       try {
         const { data, error } = await supabase.from('meetings').select('*');
-        if (!error && data) return data as Meeting[];
+        if (error) throw error;
+        if (data) return data as Meeting[];
       } catch (e) {
-        console.warn('Supabase meeting fetch failed');
+        console.warn('DB 회의 목록 조회 실패');
       }
     }
     const localData = localStorage.getItem('friendly_meetings');
@@ -132,13 +165,14 @@ export const dataService = {
   async createMeeting(meeting: Meeting): Promise<void> {
     if (isSupabaseConfigured) {
       try {
-        await supabase.from('meetings').insert([meeting]);
+        const { error } = await supabase.from('meetings').insert([meeting]);
+        if (error) throw error;
       } catch (e) {
-        console.warn('DB create meeting failed');
+        console.warn('DB 회의 생성 실패');
       }
     }
     const meetings = await this.getMeetings();
-    localStorage.setItem('friendly_meetings', JSON.stringify([...meetings, meeting]));
+    localStorage.setItem('friendly_meetings', JSON.stringify([...meetings.filter(m => m.id !== meeting.id), meeting]));
   },
 
   // --- Notification Operations ---

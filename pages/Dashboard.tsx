@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { User, LeaveRequest, Meeting } from '../types';
 import { LEAVE_TYPE_LABELS, LEAVE_TYPE_COLORS } from '../constants';
 import { dataService } from '../services/dataService';
-import { isSupabaseConfigured } from '../lib/supabase';
+import { isSupabaseConfigured, supabase } from '../lib/supabase';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -19,10 +19,16 @@ const Dashboard: React.FC = () => {
       setLoading(true);
       const session = localStorage.getItem('friendly_current_session');
       if (session) setCurrentUser(JSON.parse(session));
-      const [reqs, meetings] = await Promise.all([dataService.getRequests(), dataService.getMeetings()]);
-      setAllRequests(reqs);
-      setAllMeetings(meetings);
-      setLoading(false);
+      
+      try {
+        const [reqs, meetings] = await Promise.all([dataService.getRequests(), dataService.getMeetings()]);
+        setAllRequests(reqs);
+        setAllMeetings(meetings);
+      } catch (err) {
+        console.error("Dashboard data fetch error:", err);
+      } finally {
+        setLoading(false);
+      }
     };
     fetchData();
   }, []);
@@ -40,9 +46,14 @@ const Dashboard: React.FC = () => {
     <div className="space-y-6 md:space-y-12 pb-10">
       {/* Cloud Sync Status Indicator */}
       {!isSupabaseConfigured && (
-        <div className="bg-amber-50 border border-amber-200 p-3 rounded-2xl flex items-center justify-center gap-2 text-[10px] font-black text-amber-600 animate-pulse">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-          로컬 모드: 기기 간 데이터 동기화가 되지 않습니다. (DB 미연결)
+        <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl text-center space-y-2 animate-pulse">
+          <div className="flex items-center justify-center gap-2 text-xs font-black text-amber-600">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+            ⚠️ 데이터가 동기화되지 않고 있습니다 (로컬 모드)
+          </div>
+          <p className="text-[10px] text-amber-500 font-medium">
+            Vercel 환경 변수에 <span className="font-bold">VITE_SUPABASE_URL</span>과 <span className="font-bold">VITE_SUPABASE_ANON_KEY</span>가 정확히 등록되었는지, 그리고 <span className="font-bold">Redeploy</span>를 했는지 확인해 주세요.
+          </p>
         </div>
       )}
 
@@ -90,7 +101,7 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Timeline Calendar - Mobile Friendly with Horizontal Scroll */}
+      {/* Timeline Calendar */}
       <div className="bg-white p-4 md:p-12 rounded-3xl md:rounded-[48px] shadow-sm border border-slate-100 overflow-hidden">
         <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
           <h2 className="text-xl md:text-3xl font-black text-slate-900">팀 타임라인</h2>
