@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { User, LeaveRequest, Meeting } from '../types';
 import { LEAVE_TYPE_LABELS, LEAVE_TYPE_COLORS } from '../constants';
 import { dataService } from '../services/dataService';
+import { isSupabaseConfigured } from '../lib/supabase';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -37,6 +38,14 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-6 md:space-y-12 pb-10">
+      {/* Cloud Sync Status Indicator */}
+      {!isSupabaseConfigured && (
+        <div className="bg-amber-50 border border-amber-200 p-3 rounded-2xl flex items-center justify-center gap-2 text-[10px] font-black text-amber-600 animate-pulse">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+          로컬 모드: 기기 간 데이터 동기화가 되지 않습니다. (DB 미연결)
+        </div>
+      )}
+
       {/* Hero Header */}
       <div className="relative overflow-hidden rounded-3xl md:rounded-[48px] bg-gradient-to-br from-indigo-700 to-indigo-900 p-6 md:p-16 text-white shadow-xl">
         <div className="relative z-10">

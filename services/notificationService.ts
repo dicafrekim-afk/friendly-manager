@@ -2,7 +2,11 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
 const getApiKey = () => {
-  return (process.env as any).VITE_API_KEY || process.env.API_KEY || "";
+  return (import.meta as any).env?.VITE_API_KEY || 
+         (import.meta as any).env?.API_KEY ||
+         (process.env as any).VITE_API_KEY || 
+         process.env.API_KEY || 
+         "";
 };
 
 export interface GeneratedEmail {
