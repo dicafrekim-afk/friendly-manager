@@ -1,4 +1,3 @@
-
 import { User, LeaveRequest, Status, Notification, Meeting } from '../types';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
@@ -19,29 +18,22 @@ export const dataService = {
     if (isSupabaseConfigured) {
       try {
         const { data, error } = await supabase.from('users').select('*').order('joinDate', { ascending: false });
-        if (error) {
-          console.error('❌ [Supabase Fetch Error]:', error.message);
-          throw error;
-        }
+        if (error) throw error;
         
-        // 만약 DB가 연결되었는데 사용자 테이블이 완전히 비어있다면 초기 관리자 생성
-        if (data && data.length === 0) {
-          console.log('ℹ️ DB에 사용자가 없어 초기 관리자를 생성합니다.');
-          await this.register(INITIAL_ADMIN);
-          return [INITIAL_ADMIN];
-        }
+        if (data && data.length > 0) return data as User[];
         
-        if (data) return data as User[];
+        // 데이터가 아예 없는 경우 초기 관리자 생성 시도
+        console.log('ℹ️ DB가 비어있어 초기 관리자를 생성합니다.');
+        await this.register(INITIAL_ADMIN);
+        return [INITIAL_ADMIN];
       } catch (e) {
-        console.warn('⚠️ DB 접근 불가 - 로컬 저장소를 사용합니다.');
+        console.error('❌ Supabase 연결 실패:', e);
       }
     }
     
     // 로컬 저장소 폴백
     const localData = localStorage.getItem('friendly_users');
     let users = localData ? JSON.parse(localData) : [];
-    
-    // 로컬에도 아무것도 없다면 초기 관리자 추가
     if (users.length === 0) {
       users = [INITIAL_ADMIN];
       localStorage.setItem('friendly_users', JSON.stringify(users));
@@ -52,10 +44,11 @@ export const dataService = {
   async register(user: User): Promise<void> {
     if (isSupabaseConfigured) {
       try {
-        const { error } = await supabase.from('users').insert([user]);
-        if (error) console.error('❌ [Register Error]:', error.message);
+        const { error } = await supabase.from('users').upsert([user]);
+        if (!error) return;
+        console.error('❌ DB 등록 에러:', error.message);
       } catch (e) {
-        console.warn('DB 등록 실패');
+        console.warn('DB 등록 실패, 로컬에 저장합니다.');
       }
     }
     const users = await this.getUsers();
@@ -66,7 +59,7 @@ export const dataService = {
     if (isSupabaseConfigured) {
       try {
         const { error } = await supabase.from('users').update(updates).eq('id', userId);
-        if (error) console.error('❌ [Update Error]:', error.message);
+        if (error) console.error('❌ DB 업데이트 에러:', error.message);
       } catch (e) {
         console.warn('DB 업데이트 실패');
       }
@@ -93,8 +86,7 @@ export const dataService = {
     if (isSupabaseConfigured) {
       try {
         const { data, error } = await supabase.from('leave_requests').select('*').order('createdAt', { ascending: false });
-        if (error) throw error;
-        if (data) return data as LeaveRequest[];
+        if (!error && data) return data as LeaveRequest[];
       } catch (e) {
         console.warn('DB 요청 목록 조회 실패');
       }
@@ -107,7 +99,7 @@ export const dataService = {
     if (isSupabaseConfigured) {
       try {
         const { error } = await supabase.from('leave_requests').insert([request]);
-        if (error) console.error('❌ [Request Create Error]:', error.message);
+        if (!error) return;
       } catch (e) {
         console.warn('DB 요청 생성 실패');
       }
@@ -120,7 +112,7 @@ export const dataService = {
     if (isSupabaseConfigured) {
       try {
         const { error } = await supabase.from('leave_requests').update({ status }).eq('id', requestId);
-        if (error) throw error;
+        if (error) console.error('❌ DB 상태 업데이트 에러:', error.message);
       } catch (e) {
         console.warn('DB 상태 업데이트 실패');
       }
@@ -152,8 +144,7 @@ export const dataService = {
     if (isSupabaseConfigured) {
       try {
         const { data, error } = await supabase.from('meetings').select('*');
-        if (error) throw error;
-        if (data) return data as Meeting[];
+        if (!error && data) return data as Meeting[];
       } catch (e) {
         console.warn('DB 회의 목록 조회 실패');
       }
@@ -166,7 +157,7 @@ export const dataService = {
     if (isSupabaseConfigured) {
       try {
         const { error } = await supabase.from('meetings').insert([meeting]);
-        if (error) throw error;
+        if (!error) return;
       } catch (e) {
         console.warn('DB 회의 생성 실패');
       }
