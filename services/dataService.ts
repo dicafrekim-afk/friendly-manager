@@ -2,20 +2,20 @@
 import { User, LeaveRequest, Status, Notification, Meeting, Team } from '../types';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
+const SUPER_ADMIN_EMAIL = 'dicafrekim@naver.com';
+
 const INITIAL_ADMIN: User = {
   id: 'admin-001',
-  email: 'dicafrekim@naver.com',
+  email: SUPER_ADMIN_EMAIL,
   name: '최고관리자',
-  position: 'PL',
-  team: '공통', // 초기 관리자 팀 설정
+  position: '최고관리자',
+  team: '공통',
   role: 'ADMIN',
   status: 'APPROVED',
   totalLeave: 25,
   usedLeave: 0,
   joinDate: new Date().toISOString().split('T')[0]
 };
-
-const SUPER_ADMIN_EMAIL = 'dicafrekim@naver.com';
 
 export const dataService = {
   // --- User Operations ---
@@ -57,26 +57,22 @@ export const dataService = {
   },
 
   async updateUser(userId: string, updates: Partial<User>): Promise<void> {
-    // 1. Cloud DB 업데이트 (활성화된 경우)
+    // 1. Cloud DB 업데이트
     if (isSupabaseConfigured) {
       try {
         const { error } = await supabase.from('users').update(updates).eq('id', userId);
-        if (error) {
-          console.error('❌ Supabase Update Error:', error);
-          // DB 스키마에 컬럼이 없거나 권한 문제가 있을 수 있음
-        }
+        if (error) console.error('❌ Supabase Update Error:', error);
       } catch (e) {
         console.error('❌ DB 업데이트 실패:', e);
       }
     }
 
-    // 2. 로컬 스토리지 즉시 업데이트 (항상 동기화 보장)
-    const localData = localStorage.getItem('friendly_users');
-    const users: User[] = localData ? JSON.parse(localData) : [];
+    // 2. 로컬 스토리지 즉시 업데이트 (항상 최신 상태 유지)
+    const users = await this.getUsers();
     const updatedUsers = users.map(u => u.id === userId ? { ...u, ...updates } : u);
     localStorage.setItem('friendly_users', JSON.stringify(updatedUsers));
     
-    // 3. 현재 세션 유저인 경우 세션 정보도 업데이트
+    // 3. 세션 동기화
     const sessionStr = localStorage.getItem('friendly_current_session');
     if (sessionStr) {
       const sessionUser = JSON.parse(sessionStr) as User;
@@ -89,14 +85,10 @@ export const dataService = {
   async deleteUser(userId: string): Promise<void> {
     if (isSupabaseConfigured) {
       try {
-        const { error } = await supabase.from('users').delete().eq('id', userId);
-        if (error) throw error;
-      } catch (e) {
-        console.error('❌ DB 삭제 에러:', e);
-      }
+        await supabase.from('users').delete().eq('id', userId);
+      } catch (e) {}
     }
-    const localData = localStorage.getItem('friendly_users');
-    const users: User[] = localData ? JSON.parse(localData) : [];
+    const users = await this.getUsers();
     const filtered = users.filter(u => u.id !== userId);
     localStorage.setItem('friendly_users', JSON.stringify(filtered));
   },
@@ -166,8 +158,7 @@ export const dataService = {
   },
 
   async deductLeave(userId: string, days: number): Promise<void> {
-    const localData = localStorage.getItem('friendly_users');
-    const users: User[] = localData ? JSON.parse(localData) : [];
+    const users = await this.getUsers();
     const user = users.find(u => u.id === userId);
     if (user) {
       const newUsedLeave = (user.usedLeave || 0) + days;
