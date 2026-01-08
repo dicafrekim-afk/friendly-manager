@@ -171,7 +171,7 @@ const AdminUserManagement: React.FC = () => {
 
       {editingUser && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4 animate-in fade-in">
-          <div className="bg-white w-full max-w-lg rounded-t-[32px] md:rounded-[40px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-10 md:slide-in-from-bottom-0 duration-400 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white w-full max-w-lg rounded-t-[32px] md:rounded-[40px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-10 md:slide-in-from-bottom-0 duration-400 max-h-[90vh] overflow-y-auto scrollbar-hide">
             <div className="p-6 md:p-10 border-b flex justify-between items-center bg-slate-50/50">
               <h3 className="text-xl font-black text-slate-900">상세 설정</h3>
               <button onClick={() => setEditingUser(null)} className="p-2 text-slate-400 hover:text-slate-900 transition-colors">
@@ -185,6 +185,7 @@ const AdminUserManagement: React.FC = () => {
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-lg font-black text-slate-900">{editingUser.name}</p>
+                    {/* 제거된 중복 직급 입력 필드: 헤더 영역은 정보 표시용으로만 유지 */}
                   </div>
                   <p className="text-[10px] font-bold text-slate-400 truncate">{editingUser.email}</p>
                 </div>
@@ -206,7 +207,7 @@ const AdminUserManagement: React.FC = () => {
                   <select 
                     value={editingUser.team}
                     onChange={(e) => setEditingUser({...editingUser, team: e.target.value as Team})}
-                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-50 focus:border-indigo-600 outline-none text-sm font-black appearance-none transition-all"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-50 focus:border-indigo-600 outline-none text-sm font-black appearance-none transition-all cursor-pointer"
                   >
                     {TEAMS.map(team => (
                       <option key={team} value={team}>{team}</option>
@@ -237,7 +238,7 @@ const AdminUserManagement: React.FC = () => {
               <div className="flex flex-col gap-3 pt-4">
                 <div className="flex gap-3">
                   <button type="button" onClick={() => setEditingUser(null)} className="flex-1 py-4 text-xs font-black text-slate-400 bg-slate-100 rounded-xl">취소</button>
-                  <button type="submit" className="flex-1 py-4 text-xs font-black text-white bg-indigo-600 rounded-xl shadow-lg">정보 저장</button>
+                  <button type="submit" className="flex-1 py-4 text-xs font-black text-white bg-indigo-600 rounded-xl shadow-lg hover:bg-indigo-700 transition-colors">정보 저장</button>
                 </div>
                 
                 {editingUser.email !== SUPER_ADMIN_EMAIL && (

@@ -57,18 +57,26 @@ export const dataService = {
   },
 
   async updateUser(userId: string, updates: Partial<User>): Promise<void> {
+    // 1. Cloud DB 업데이트 (활성화된 경우)
     if (isSupabaseConfigured) {
       try {
         const { error } = await supabase.from('users').update(updates).eq('id', userId);
-        if (error) throw error;
+        if (error) {
+          console.error('❌ Supabase Update Error:', error);
+          // DB 스키마에 컬럼이 없거나 권한 문제가 있을 수 있음
+        }
       } catch (e) {
         console.error('❌ DB 업데이트 실패:', e);
       }
     }
-    const users = await this.getUsers();
-    const updated = users.map(u => u.id === userId ? { ...u, ...updates } : u);
-    localStorage.setItem('friendly_users', JSON.stringify(updated));
+
+    // 2. 로컬 스토리지 즉시 업데이트 (항상 동기화 보장)
+    const localData = localStorage.getItem('friendly_users');
+    const users: User[] = localData ? JSON.parse(localData) : [];
+    const updatedUsers = users.map(u => u.id === userId ? { ...u, ...updates } : u);
+    localStorage.setItem('friendly_users', JSON.stringify(updatedUsers));
     
+    // 3. 현재 세션 유저인 경우 세션 정보도 업데이트
     const sessionStr = localStorage.getItem('friendly_current_session');
     if (sessionStr) {
       const sessionUser = JSON.parse(sessionStr) as User;
@@ -87,7 +95,8 @@ export const dataService = {
         console.error('❌ DB 삭제 에러:', e);
       }
     }
-    const users = await this.getUsers();
+    const localData = localStorage.getItem('friendly_users');
+    const users: User[] = localData ? JSON.parse(localData) : [];
     const filtered = users.filter(u => u.id !== userId);
     localStorage.setItem('friendly_users', JSON.stringify(filtered));
   },
@@ -121,7 +130,6 @@ export const dataService = {
       }
     }
     
-    // 신청 당시의 팀 정보(userTeam)를 확실히 주입
     const finalRequest = { 
       ...request, 
       status: initialStatus,
@@ -158,7 +166,8 @@ export const dataService = {
   },
 
   async deductLeave(userId: string, days: number): Promise<void> {
-    const users = await this.getUsers();
+    const localData = localStorage.getItem('friendly_users');
+    const users: User[] = localData ? JSON.parse(localData) : [];
     const user = users.find(u => u.id === userId);
     if (user) {
       const newUsedLeave = (user.usedLeave || 0) + days;
