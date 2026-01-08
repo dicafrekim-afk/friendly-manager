@@ -4,6 +4,8 @@ import { User, Role } from '../types';
 import { dataService } from '../services/dataService';
 import { isSupabaseConfigured } from '../lib/supabase';
 
+const SUPER_ADMIN_EMAIL = 'dicafrekim@naver.com';
+
 const AdminUserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,12 +41,27 @@ const AdminUserManagement: React.FC = () => {
     if (!editingUser) return;
     await dataService.updateUser(editingUser.id, {
       role: editingUser.role,
+      position: editingUser.position,
       totalLeave: editingUser.totalLeave,
       usedLeave: editingUser.usedLeave,
-      status: editingUser.status // 상태도 수정 가능하도록 유지
+      status: editingUser.status
     });
     setEditingUser(null);
     await fetchUsers();
+  };
+
+  const handleDeleteUser = async () => {
+    if (!editingUser) return;
+    if (editingUser.email === SUPER_ADMIN_EMAIL) {
+      alert('최고관리자 계정은 삭제할 수 없습니다.');
+      return;
+    }
+    
+    if (window.confirm(`${editingUser.name} 님을 정말 삭제하시겠습니까? 삭제 후에는 복구할 수 없습니다.`)) {
+      await dataService.deleteUser(editingUser.id);
+      setEditingUser(null);
+      await fetchUsers();
+    }
   };
 
   if (loading) return <div className="flex items-center justify-center h-full pt-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>;
@@ -96,11 +113,14 @@ const AdminUserManagement: React.FC = () => {
                 {u.name.charAt(0)}
               </div>
               <span className={`px-2 py-1 text-[9px] font-black rounded-full border tracking-widest ${u.role === 'ADMIN' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
-                {u.role}
+                {u.role === 'ADMIN' ? 'PL' : 'USER'}
               </span>
             </div>
             
-            <h3 className="text-lg font-black text-slate-900">{u.name}</h3>
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="text-lg font-black text-slate-900">{u.name}</h3>
+              <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">{u.position || '팀원'}</span>
+            </div>
             <p className="text-[10px] font-bold text-slate-400 mb-6 truncate">{u.email}</p>
             
             <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl mb-6">
@@ -109,7 +129,7 @@ const AdminUserManagement: React.FC = () => {
                 <p className="text-md font-black text-slate-900">{u.totalLeave - u.usedLeave} / {u.totalLeave}d</p>
               </div>
               <div className="w-10 h-10 rounded-full border-2 border-white shadow-sm flex items-center justify-center bg-white text-[9px] font-black text-indigo-600">
-                {Math.round(((u.totalLeave - u.usedLeave) / u.totalLeave) * 100)}%
+                {Math.round(((u.totalLeave - (u.usedLeave || 0)) / u.totalLeave) * 100)}%
               </div>
             </div>
 
@@ -143,7 +163,7 @@ const AdminUserManagement: React.FC = () => {
 
       {editingUser && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4 animate-in fade-in">
-          <div className="bg-white w-full max-w-lg rounded-t-[32px] md:rounded-[40px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-10 md:slide-in-from-bottom-0 duration-400">
+          <div className="bg-white w-full max-w-lg rounded-t-[32px] md:rounded-[40px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-10 md:slide-in-from-bottom-0 duration-400 max-h-[90vh] overflow-y-auto">
             <div className="p-6 md:p-10 border-b flex justify-between items-center bg-slate-50/50">
               <h3 className="text-xl font-black text-slate-900">상세 설정</h3>
               <button onClick={() => setEditingUser(null)} className="p-2 text-slate-400 hover:text-slate-900 transition-colors">
@@ -154,17 +174,26 @@ const AdminUserManagement: React.FC = () => {
             <form onSubmit={handleUpdateUser} className="p-6 md:p-10 space-y-6">
               <div className="flex items-center gap-4 p-4 bg-indigo-50 rounded-2xl">
                 <div className="w-14 h-14 rounded-xl bg-white flex items-center justify-center text-indigo-600 font-black text-xl">{editingUser.name.charAt(0)}</div>
-                <div>
-                  <p className="text-lg font-black text-slate-900">{editingUser.name}</p>
-                  <p className="text-[10px] font-bold text-slate-400">{editingUser.email}</p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-lg font-black text-slate-900">{editingUser.name}</p>
+                    <input 
+                      type="text" 
+                      value={editingUser.position} 
+                      onChange={(e) => setEditingUser({...editingUser, position: e.target.value})}
+                      placeholder="직급 입력"
+                      className="px-2 py-0.5 text-[10px] font-black bg-white border border-indigo-100 rounded text-indigo-600 outline-none focus:ring-1 focus:ring-indigo-300 max-w-[80px]"
+                    />
+                  </div>
+                  <p className="text-[10px] font-bold text-slate-400 truncate">{editingUser.email}</p>
                 </div>
               </div>
 
               <div className="space-y-3">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">권한</label>
                 <div className="grid grid-cols-2 gap-3">
-                  <button type="button" onClick={() => setEditingUser({...editingUser, role: 'USER'})} className={`py-3 rounded-xl border-2 text-[11px] font-black ${editingUser.role === 'USER' ? 'border-indigo-600 bg-indigo-50 text-indigo-600' : 'border-slate-100 text-slate-400'}`}>USER</button>
-                  <button type="button" onClick={() => setEditingUser({...editingUser, role: 'ADMIN'})} className={`py-3 rounded-xl border-2 text-[11px] font-black ${editingUser.role === 'ADMIN' ? 'border-amber-500 bg-amber-50 text-amber-600' : 'border-slate-100 text-slate-400'}`}>ADMIN</button>
+                  <button type="button" onClick={() => setEditingUser({...editingUser, role: 'USER'})} className={`py-3 rounded-xl border-2 text-[11px] font-black transition-all ${editingUser.role === 'USER' ? 'border-indigo-600 bg-indigo-50 text-indigo-600' : 'border-slate-100 text-slate-400'}`}>USER</button>
+                  <button type="button" onClick={() => setEditingUser({...editingUser, role: 'ADMIN'})} className={`py-3 rounded-xl border-2 text-[11px] font-black transition-all ${editingUser.role === 'ADMIN' ? 'border-amber-500 bg-amber-50 text-amber-600' : 'border-slate-100 text-slate-400'}`}>PL</button>
                 </div>
               </div>
 
@@ -179,9 +208,24 @@ const AdminUserManagement: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setEditingUser(null)} className="flex-1 py-4 text-xs font-black text-slate-400 bg-slate-100 rounded-xl">취소</button>
-                <button type="submit" className="flex-1 py-4 text-xs font-black text-white bg-indigo-600 rounded-xl shadow-lg">저장</button>
+              <div className="flex flex-col gap-3 pt-4">
+                <div className="flex gap-3">
+                  <button type="button" onClick={() => setEditingUser(null)} className="flex-1 py-4 text-xs font-black text-slate-400 bg-slate-100 rounded-xl">취소</button>
+                  <button type="submit" className="flex-1 py-4 text-xs font-black text-white bg-indigo-600 rounded-xl shadow-lg">정보 저장</button>
+                </div>
+                
+                {editingUser.email !== SUPER_ADMIN_EMAIL && (
+                  <button 
+                    type="button" 
+                    onClick={handleDeleteUser}
+                    className="w-full py-4 text-xs font-black text-red-400 border-2 border-red-50 hover:bg-red-50 hover:text-red-600 transition-all rounded-xl mt-2 flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    팀원 삭제 (퇴사 처리)
+                  </button>
+                )}
               </div>
             </form>
           </div>

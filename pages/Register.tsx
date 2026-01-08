@@ -27,10 +27,12 @@ const Register: React.FC = () => {
         return;
       }
 
+      // Fix: Add required 'position' property to satisfy User interface
       const newUser: User = {
         id: `u-${Date.now()}`,
         email,
         name,
+        position: '팀원',
         role: 'USER',
         status: 'PENDING',
         totalLeave: 15,

@@ -1,15 +1,21 @@
 
 import React, { useState, useEffect } from 'react';
-import { LeaveRequest } from '../types';
+import { LeaveRequest, User } from '../types';
 import { LEAVE_TYPE_LABELS, LEAVE_TYPE_COLORS } from '../constants';
 import { dataService } from '../services/dataService';
+
+const SUPER_ADMIN_EMAIL = 'dicafrekim@naver.com';
 
 const AdminRequests: React.FC = () => {
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   const fetchRequests = async () => {
     setLoading(true);
+    const session = localStorage.getItem('friendly_current_session');
+    if (session) setCurrentUser(JSON.parse(session));
+    
     const data = await dataService.getRequests();
     setRequests(data);
     setLoading(false);
@@ -19,58 +25,118 @@ const AdminRequests: React.FC = () => {
     fetchRequests();
   }, []);
 
-  const handleAction = async (id: string, newStatus: 'APPROVED' | 'REJECTED') => {
+  const handleAction = async (id: string, newStatus: any) => {
     await dataService.updateRequestStatus(id, newStatus);
     fetchRequests();
   };
 
-  if (loading) return <div className="flex items-center justify-center h-full pt-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>;
+  if (loading || !currentUser) return <div className="flex items-center justify-center h-full pt-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>;
+
+  const isSuperAdmin = currentUser.email === SUPER_ADMIN_EMAIL;
 
   return (
     <div className="space-y-6 md:space-y-8 pb-10 px-2">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl md:text-3xl font-black text-slate-900">신청 승인</h1>
-        <div className="bg-amber-100 text-amber-700 px-3 py-1.5 rounded-full text-[10px] font-black">
-          {requests.filter(r => r.status === 'PENDING').length} 건 대기
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-black text-slate-900">신청 승인 관리</h1>
+          <p className="text-xs font-bold text-slate-400 mt-1">
+            {isSuperAdmin ? '✨ 최고관리자: 최종 승인 권한' : '👤 PL: 1차 검토 권한'}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <div className="bg-amber-50 text-amber-700 px-3 py-2 rounded-xl text-[10px] font-black border border-amber-100 flex items-center gap-2">
+            <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></span>
+            PL 검토 대기: {requests.filter(r => r.status === 'PENDING_PL').length}
+          </div>
+          <div className="bg-indigo-50 text-indigo-700 px-3 py-2 rounded-xl text-[10px] font-black border border-indigo-100 flex items-center gap-2">
+            <span className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse"></span>
+            최종 승인 대기: {requests.filter(r => r.status === 'PENDING_FINAL').length}
+          </div>
         </div>
       </div>
       
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left min-w-[600px]">
+          <table className="w-full text-left min-w-[700px]">
             <thead>
               <tr className="bg-slate-50 text-slate-400 text-[9px] uppercase font-black tracking-widest border-b border-slate-100">
                 <th className="px-6 py-4">신청자</th>
                 <th className="px-6 py-4">유형</th>
+                <th className="px-6 py-4">사유</th>
                 <th className="px-6 py-4">일정</th>
+                <th className="px-6 py-4">현재 상태</th>
                 <th className="px-6 py-4 text-right">관리</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {requests.map(req => (
-                <tr key={req.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-5">
-                    <p className="text-sm font-black text-slate-900">{req.userName}</p>
-                  </td>
-                  <td className="px-6 py-5">
-                    <span className={`px-2 py-0.5 rounded text-[9px] font-black border uppercase ${LEAVE_TYPE_COLORS[req.type]}`}>{LEAVE_TYPE_LABELS[req.type]}</span>
-                  </td>
-                  <td className="px-6 py-5 text-[11px] font-bold text-slate-500 whitespace-nowrap">
-                    {req.startDate} ~ {req.endDate}
-                  </td>
-                  <td className="px-6 py-5 text-right">
-                    {req.status === 'PENDING' ? (
-                      <div className="flex gap-2 justify-end">
-                        <button onClick={() => handleAction(req.id, 'APPROVED')} className="px-3 py-1.5 bg-indigo-600 text-white text-[9px] font-black rounded-lg shadow-sm">승인</button>
-                        <button onClick={() => handleAction(req.id, 'REJECTED')} className="px-3 py-1.5 bg-slate-100 text-slate-400 text-[9px] font-black rounded-lg">반려</button>
+              {requests.map(req => {
+                const canReview = !isSuperAdmin && req.status === 'PENDING_PL';
+                const canFinalApprove = isSuperAdmin && req.status === 'PENDING_FINAL';
+                const canReject = (isSuperAdmin && (req.status === 'PENDING_PL' || req.status === 'PENDING_FINAL')) || (!isSuperAdmin && req.status === 'PENDING_PL');
+
+                return (
+                  <tr key={req.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-6 py-5">
+                      <p className="text-sm font-black text-slate-900">{req.userName}</p>
+                    </td>
+                    <td className="px-6 py-5">
+                      <span className={`px-2 py-0.5 rounded text-[9px] font-black border uppercase ${LEAVE_TYPE_COLORS[req.type]}`}>{LEAVE_TYPE_LABELS[req.type]}</span>
+                    </td>
+                    <td className="px-6 py-5">
+                      <p className="text-[11px] font-bold text-slate-500 line-clamp-1 max-w-[200px]">{req.reason}</p>
+                    </td>
+                    <td className="px-6 py-5 text-[11px] font-bold text-slate-400 whitespace-nowrap">
+                      {req.startDate} ~ {req.endDate}
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex flex-col gap-1">
+                        <span className={`text-[10px] font-black px-2 py-1 rounded-lg w-fit ${
+                          req.status === 'PENDING_PL' ? 'bg-amber-50 text-amber-600' :
+                          req.status === 'PENDING_FINAL' ? 'bg-indigo-50 text-indigo-600' :
+                          req.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600' :
+                          'bg-red-50 text-red-600'
+                        }`}>
+                          {req.status === 'PENDING_PL' ? 'PL 검토 대기' :
+                           req.status === 'PENDING_FINAL' ? '최종 승인 대기' :
+                           req.status === 'APPROVED' ? '승인 완료' : '반려됨'}
+                        </span>
+                        {req.status === 'PENDING_FINAL' && <span className="text-[8px] font-bold text-indigo-300 ml-1">PL 검토 완료 ✓</span>}
                       </div>
-                    ) : (
-                      <span className={`text-[10px] font-black uppercase tracking-widest ${req.status === 'APPROVED' ? 'text-emerald-500' : 'text-slate-300'}`}>{req.status}</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {requests.length === 0 && <tr><td colSpan={4} className="p-20 text-center text-slate-300 text-xs italic">내역이 없습니다.</td></tr>}
+                    </td>
+                    <td className="px-6 py-5 text-right">
+                      <div className="flex gap-2 justify-end">
+                        {canReview && (
+                          <button 
+                            onClick={() => handleAction(req.id, 'PENDING_FINAL')} 
+                            className="px-3 py-1.5 bg-indigo-600 text-white text-[9px] font-black rounded-lg shadow-sm hover:bg-indigo-700 transition-colors"
+                          >
+                            검토 승인
+                          </button>
+                        )}
+                        {canFinalApprove && (
+                          <button 
+                            onClick={() => handleAction(req.id, 'APPROVED')} 
+                            className="px-3 py-1.5 bg-emerald-500 text-white text-[9px] font-black rounded-lg shadow-sm hover:bg-emerald-600 transition-colors"
+                          >
+                            최종 승인
+                          </button>
+                        )}
+                        {canReject && (
+                          <button 
+                            onClick={() => handleAction(req.id, 'REJECTED')} 
+                            className="px-3 py-1.5 bg-slate-100 text-slate-400 text-[9px] font-black rounded-lg hover:bg-red-50 hover:text-red-500 transition-all"
+                          >
+                            반려
+                          </button>
+                        )}
+                        {req.status === 'APPROVED' && <span className="text-[9px] font-black text-emerald-500 tracking-widest uppercase py-1.5">FINALIZED</span>}
+                        {req.status === 'REJECTED' && <span className="text-[9px] font-black text-slate-300 tracking-widest uppercase py-1.5">REJECTED</span>}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {requests.length === 0 && <tr><td colSpan={6} className="p-20 text-center text-slate-300 text-xs italic">내역이 없습니다.</td></tr>}
             </tbody>
           </table>
         </div>

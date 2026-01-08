@@ -1,3 +1,4 @@
+
 import { User, LeaveRequest, Status, Notification, Meeting } from '../types';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
@@ -5,6 +6,7 @@ const INITIAL_ADMIN: User = {
   id: 'admin-001',
   email: 'dicafrekim@naver.com',
   name: '최고관리자',
+  position: 'PL',
   role: 'ADMIN',
   status: 'APPROVED',
   totalLeave: 25,
@@ -12,32 +14,23 @@ const INITIAL_ADMIN: User = {
   joinDate: new Date().toISOString().split('T')[0]
 };
 
+const SUPER_ADMIN_EMAIL = 'dicafrekim@naver.com';
+
 export const dataService = {
   // --- User Operations ---
   async getUsers(): Promise<User[]> {
     if (isSupabaseConfigured) {
       try {
         const { data, error, status } = await supabase.from('users').select('*').order('joinDate', { ascending: false });
-        
-        // 404 에러는 테이블이 없다는 뜻
-        if (status === 404) {
-          console.warn('⚠️ [Supabase] "users" 테이블이 존재하지 않습니다. SQL Editor에서 테이블을 생성해주세요.');
-          throw new Error('Table not found');
-        }
+        if (status === 404) throw new Error('Table not found');
         if (error) throw error;
-        
         if (data && data.length > 0) return data as User[];
-        
-        // 데이터가 아예 없는 경우 초기 관리자 생성 시도
-        console.log('ℹ️ DB가 비어있어 초기 관리자를 생성합니다.');
         await this.register(INITIAL_ADMIN);
         return [INITIAL_ADMIN];
       } catch (e) {
         console.error('❌ Supabase 조회 실패:', e);
       }
     }
-    
-    // 로컬 저장소 폴백
     const localData = localStorage.getItem('friendly_users');
     let users = localData ? JSON.parse(localData) : [];
     if (users.length === 0) {
@@ -48,32 +41,26 @@ export const dataService = {
   },
 
   async register(user: User): Promise<void> {
+    const userWithPosition = { ...user, position: user.position || '팀원' };
     if (isSupabaseConfigured) {
       try {
-        const { error } = await supabase.from('users').upsert([user]);
-        if (!error) return;
-        console.error('❌ DB 등록 에러:', error.message);
-      } catch (e) {
-        console.warn('DB 등록 실패, 로컬에 저장합니다.');
-      }
+        await supabase.from('users').upsert([userWithPosition]);
+      } catch (e) {}
     }
     const users = await this.getUsers();
-    localStorage.setItem('friendly_users', JSON.stringify([...users.filter(u => u.id !== user.id), user]));
+    localStorage.setItem('friendly_users', JSON.stringify([...users.filter(u => u.id !== user.id), userWithPosition]));
   },
 
   async updateUser(userId: string, updates: Partial<User>): Promise<void> {
     if (isSupabaseConfigured) {
       try {
-        const { error } = await supabase.from('users').update(updates).eq('id', userId);
-        if (error) console.error('❌ DB 업데이트 에러:', error.message);
-      } catch (e) {
-        console.warn('DB 업데이트 실패');
-      }
+        await supabase.from('users').update(updates).eq('id', userId);
+      } catch (e) {}
     }
     const users = await this.getUsers();
     const updated = users.map(u => u.id === userId ? { ...u, ...updates } : u);
     localStorage.setItem('friendly_users', JSON.stringify(updated));
-
+    
     const sessionStr = localStorage.getItem('friendly_current_session');
     if (sessionStr) {
       const sessionUser = JSON.parse(sessionStr) as User;
@@ -83,7 +70,21 @@ export const dataService = {
     }
   },
 
-  async updateUserStatus(userId: string, status: Status): Promise<void> {
+  async deleteUser(userId: string): Promise<void> {
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase.from('users').delete().eq('id', userId);
+        if (error) throw error;
+      } catch (e) {
+        console.error('❌ DB 삭제 에러:', e);
+      }
+    }
+    const users = await this.getUsers();
+    const filtered = users.filter(u => u.id !== userId);
+    localStorage.setItem('friendly_users', JSON.stringify(filtered));
+  },
+
+  async updateUserStatus(userId: string, status: 'APPROVED' | 'REJECTED'): Promise<void> {
     await this.updateUser(userId, { status });
   },
 
@@ -91,41 +92,44 @@ export const dataService = {
   async getRequests(): Promise<LeaveRequest[]> {
     if (isSupabaseConfigured) {
       try {
-        const { data, error, status } = await supabase.from('leave_requests').select('*').order('createdAt', { ascending: false });
-        if (status === 404) {
-          console.warn('⚠️ [Supabase] "leave_requests" 테이블이 없습니다.');
-          throw new Error('Table not found');
-        }
+        const { data, error } = await supabase.from('leave_requests').select('*').order('createdAt', { ascending: false });
         if (!error && data) return data as LeaveRequest[];
-      } catch (e) {
-        console.warn('DB 요청 목록 조회 실패');
-      }
+      } catch (e) {}
     }
     const localData = localStorage.getItem('friendly_requests');
     return localData ? JSON.parse(localData) : [];
   },
 
   async createRequest(request: LeaveRequest): Promise<void> {
-    if (isSupabaseConfigured) {
-      try {
-        const { error } = await supabase.from('leave_requests').insert([request]);
-        if (!error) return;
-      } catch (e) {
-        console.warn('DB 요청 생성 실패');
+    const sessionStr = localStorage.getItem('friendly_current_session');
+    const currentUser: User = sessionStr ? JSON.parse(sessionStr) : null;
+    
+    let initialStatus: Status = 'PENDING_PL';
+    if (currentUser) {
+      if (currentUser.email === SUPER_ADMIN_EMAIL) {
+        initialStatus = 'APPROVED';
+      } else if (currentUser.role === 'ADMIN') {
+        initialStatus = 'PENDING_FINAL';
       }
     }
+    
+    const finalRequest = { ...request, status: initialStatus };
+
+    if (isSupabaseConfigured) {
+      try {
+        await supabase.from('leave_requests').insert([finalRequest]);
+        return;
+      } catch (e) {}
+    }
     const reqs = await this.getRequests();
-    localStorage.setItem('friendly_requests', JSON.stringify([...reqs.filter(r => r.id !== request.id), request]));
+    localStorage.setItem('friendly_requests', JSON.stringify([...reqs.filter(r => r.id !== request.id), finalRequest]));
   },
 
   async updateRequestStatus(requestId: string, status: Status): Promise<void> {
     if (isSupabaseConfigured) {
       try {
-        const { error } = await supabase.from('leave_requests').update({ status }).eq('id', requestId);
-        if (error) console.error('❌ DB 상태 업데이트 에러:', error.message);
-      } catch (e) {
-        console.warn('DB 상태 업데이트 실패');
-      }
+        await supabase.from('leave_requests').update({ status }).eq('id', requestId);
+      } catch (e) {}
     }
     const reqs = await this.getRequests();
     const targetReq = reqs.find(r => r.id === requestId);
@@ -149,19 +153,12 @@ export const dataService = {
     }
   },
 
-  // --- Meeting Operations ---
   async getMeetings(): Promise<Meeting[]> {
     if (isSupabaseConfigured) {
       try {
-        const { data, error, status } = await supabase.from('meetings').select('*');
-        if (status === 404) {
-          console.warn('⚠️ [Supabase] "meetings" 테이블이 없습니다.');
-          throw new Error('Table not found');
-        }
-        if (!error && data) return data as Meeting[];
-      } catch (e) {
-        console.warn('DB 회의 목록 조회 실패');
-      }
+        const { data } = await supabase.from('meetings').select('*');
+        if (data) return data as Meeting[];
+      } catch (e) {}
     }
     const localData = localStorage.getItem('friendly_meetings');
     return localData ? JSON.parse(localData) : [];
@@ -169,18 +166,12 @@ export const dataService = {
 
   async createMeeting(meeting: Meeting): Promise<void> {
     if (isSupabaseConfigured) {
-      try {
-        const { error } = await supabase.from('meetings').insert([meeting]);
-        if (!error) return;
-      } catch (e) {
-        console.warn('DB 회의 생성 실패');
-      }
+      try { await supabase.from('meetings').insert([meeting]); } catch (e) {}
     }
     const meetings = await this.getMeetings();
     localStorage.setItem('friendly_meetings', JSON.stringify([...meetings.filter(m => m.id !== meeting.id), meeting]));
   },
 
-  // --- Notification Operations ---
   async getNotifications(userId: string): Promise<Notification[]> {
     const localData = localStorage.getItem('friendly_notifications');
     const allNotifs: Notification[] = localData ? JSON.parse(localData) : [];

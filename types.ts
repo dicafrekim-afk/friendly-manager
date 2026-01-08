@@ -1,14 +1,15 @@
 
 export type Role = 'ADMIN' | 'USER';
-export type Status = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type Status = 'PENDING' | 'PENDING_PL' | 'PENDING_FINAL' | 'APPROVED' | 'REJECTED';
 export type LeaveType = 'VACATION' | 'BUSINESS_TRIP' | 'SICK_LEAVE' | 'OTHER';
 
 export interface User {
   id: string;
   email: string;
   name: string;
+  position: string;
   role: Role;
-  status: Status;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'; // 계정 승인 상태
   totalLeave: number;
   usedLeave: number;
   joinDate: string;
@@ -22,7 +23,7 @@ export interface LeaveRequest {
   startDate: string;
   endDate: string;
   reason: string;
-  status: Status;
+  status: Status; // 결재 상태
   approverId?: string;
   createdAt: string;
 }
