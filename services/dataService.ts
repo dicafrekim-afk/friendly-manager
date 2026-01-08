@@ -1,5 +1,5 @@
 
-import { User, LeaveRequest, Status, Notification, Meeting } from '../types';
+import { User, LeaveRequest, Status, Notification, Meeting, Team } from '../types';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 const INITIAL_ADMIN: User = {
@@ -7,6 +7,7 @@ const INITIAL_ADMIN: User = {
   email: 'dicafrekim@naver.com',
   name: '최고관리자',
   position: 'PL',
+  team: '공통', // 초기 관리자 팀 설정
   role: 'ADMIN',
   status: 'APPROVED',
   totalLeave: 25,
@@ -41,21 +42,28 @@ export const dataService = {
   },
 
   async register(user: User): Promise<void> {
-    const userWithPosition = { ...user, position: user.position || '팀원' };
+    const userWithDefaults = { 
+      ...user, 
+      position: user.position || '팀원',
+      team: user.team || '공통'
+    };
     if (isSupabaseConfigured) {
       try {
-        await supabase.from('users').upsert([userWithPosition]);
+        await supabase.from('users').upsert([userWithDefaults]);
       } catch (e) {}
     }
     const users = await this.getUsers();
-    localStorage.setItem('friendly_users', JSON.stringify([...users.filter(u => u.id !== user.id), userWithPosition]));
+    localStorage.setItem('friendly_users', JSON.stringify([...users.filter(u => u.id !== user.id), userWithDefaults]));
   },
 
   async updateUser(userId: string, updates: Partial<User>): Promise<void> {
     if (isSupabaseConfigured) {
       try {
-        await supabase.from('users').update(updates).eq('id', userId);
-      } catch (e) {}
+        const { error } = await supabase.from('users').update(updates).eq('id', userId);
+        if (error) throw error;
+      } catch (e) {
+        console.error('❌ DB 업데이트 실패:', e);
+      }
     }
     const users = await this.getUsers();
     const updated = users.map(u => u.id === userId ? { ...u, ...updates } : u);
@@ -113,7 +121,12 @@ export const dataService = {
       }
     }
     
-    const finalRequest = { ...request, status: initialStatus };
+    // 신청 당시의 팀 정보(userTeam)를 확실히 주입
+    const finalRequest = { 
+      ...request, 
+      status: initialStatus,
+      userTeam: currentUser?.team || '공통'
+    };
 
     if (isSupabaseConfigured) {
       try {

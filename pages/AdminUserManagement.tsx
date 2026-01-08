@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, Role } from '../types';
+import { User, Role, Team } from '../types';
 import { dataService } from '../services/dataService';
 import { isSupabaseConfigured } from '../lib/supabase';
 
 const SUPER_ADMIN_EMAIL = 'dicafrekim@naver.com';
+const TEAMS: Team[] = ['공채', '경채', '특정직', '공통'];
 
 const AdminUserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -39,13 +40,17 @@ const AdminUserManagement: React.FC = () => {
   const handleUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUser) return;
+    
+    // Explicitly update all fields to ensure 'position' and 'team' are saved
     await dataService.updateUser(editingUser.id, {
       role: editingUser.role,
       position: editingUser.position,
+      team: editingUser.team,
       totalLeave: editingUser.totalLeave,
       usedLeave: editingUser.usedLeave,
       status: editingUser.status
     });
+    
     setEditingUser(null);
     await fetchUsers();
   };
@@ -112,9 +117,12 @@ const AdminUserManagement: React.FC = () => {
               <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center text-white text-lg font-black">
                 {u.name.charAt(0)}
               </div>
-              <span className={`px-2 py-1 text-[9px] font-black rounded-full border tracking-widest ${u.role === 'ADMIN' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
-                {u.role === 'ADMIN' ? 'PL' : 'USER'}
-              </span>
+              <div className="flex flex-col items-end gap-1">
+                <span className={`px-2 py-1 text-[9px] font-black rounded-full border tracking-widest ${u.role === 'ADMIN' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+                  {u.role === 'ADMIN' ? 'PL' : 'USER'}
+                </span>
+                <span className="px-2 py-1 text-[8px] font-black bg-slate-100 text-slate-500 rounded-lg">{u.team || '공통'}</span>
+              </div>
             </div>
             
             <div className="flex items-center gap-2 mb-1">
@@ -177,23 +185,41 @@ const AdminUserManagement: React.FC = () => {
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-lg font-black text-slate-900">{editingUser.name}</p>
-                    <input 
-                      type="text" 
-                      value={editingUser.position} 
-                      onChange={(e) => setEditingUser({...editingUser, position: e.target.value})}
-                      placeholder="직급 입력"
-                      className="px-2 py-0.5 text-[10px] font-black bg-white border border-indigo-100 rounded text-indigo-600 outline-none focus:ring-1 focus:ring-indigo-300 max-w-[80px]"
-                    />
                   </div>
                   <p className="text-[10px] font-bold text-slate-400 truncate">{editingUser.email}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">직급</label>
+                  <input 
+                    type="text" 
+                    value={editingUser.position} 
+                    onChange={(e) => setEditingUser({...editingUser, position: e.target.value})}
+                    placeholder="예: 대리"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-50 focus:border-indigo-600 outline-none text-sm font-black transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">소속 팀</label>
+                  <select 
+                    value={editingUser.team}
+                    onChange={(e) => setEditingUser({...editingUser, team: e.target.value as Team})}
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-50 focus:border-indigo-600 outline-none text-sm font-black appearance-none transition-all"
+                  >
+                    {TEAMS.map(team => (
+                      <option key={team} value={team}>{team}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
               <div className="space-y-3">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">권한</label>
                 <div className="grid grid-cols-2 gap-3">
-                  <button type="button" onClick={() => setEditingUser({...editingUser, role: 'USER'})} className={`py-3 rounded-xl border-2 text-[11px] font-black transition-all ${editingUser.role === 'USER' ? 'border-indigo-600 bg-indigo-50 text-indigo-600' : 'border-slate-100 text-slate-400'}`}>USER</button>
-                  <button type="button" onClick={() => setEditingUser({...editingUser, role: 'ADMIN'})} className={`py-3 rounded-xl border-2 text-[11px] font-black transition-all ${editingUser.role === 'ADMIN' ? 'border-amber-500 bg-amber-50 text-amber-600' : 'border-slate-100 text-slate-400'}`}>PL</button>
+                  <button type="button" onClick={() => setEditingUser({...editingUser, role: 'USER'})} className={`py-3 rounded-xl border-2 text-[11px] font-black transition-all ${editingUser.role === 'USER' ? 'border-indigo-600 bg-indigo-50 text-indigo-600' : 'border-slate-100 text-slate-400'}`}>USER (팀원)</button>
+                  <button type="button" onClick={() => setEditingUser({...editingUser, role: 'ADMIN'})} className={`py-3 rounded-xl border-2 text-[11px] font-black transition-all ${editingUser.role === 'ADMIN' ? 'border-amber-500 bg-amber-50 text-amber-600' : 'border-slate-100 text-slate-400'}`}>PL (팀장)</button>
                 </div>
               </div>
 

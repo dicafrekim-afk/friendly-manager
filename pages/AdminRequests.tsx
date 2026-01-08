@@ -14,10 +14,25 @@ const AdminRequests: React.FC = () => {
   const fetchRequests = async () => {
     setLoading(true);
     const session = localStorage.getItem('friendly_current_session');
-    if (session) setCurrentUser(JSON.parse(session));
-    
-    const data = await dataService.getRequests();
-    setRequests(data);
+    if (session) {
+      const parsedUser = JSON.parse(session);
+      setCurrentUser(parsedUser);
+      
+      const allRequests = await dataService.getRequests();
+      const isSuperAdmin = parsedUser.email === SUPER_ADMIN_EMAIL;
+      
+      // Filter logic based on role and team
+      let filtered = allRequests;
+      if (!isSuperAdmin) {
+        // PL only sees requests from their own team that are at 'PENDING_PL' status
+        filtered = allRequests.filter(req => 
+          req.userTeam === parsedUser.team && 
+          (req.status === 'PENDING_PL' || req.userId === parsedUser.id)
+        );
+      }
+      
+      setRequests(filtered);
+    }
     setLoading(false);
   };
 
@@ -40,18 +55,22 @@ const AdminRequests: React.FC = () => {
         <div>
           <h1 className="text-2xl md:text-3xl font-black text-slate-900">신청 승인 관리</h1>
           <p className="text-xs font-bold text-slate-400 mt-1">
-            {isSuperAdmin ? '✨ 최고관리자: 최종 승인 권한' : '👤 PL: 1차 검토 권한'}
+            {isSuperAdmin ? '✨ 최고관리자: 전사 최종 승인 권한' : `👤 PL (${currentUser.team}팀): 1차 검토 권한`}
           </p>
         </div>
         <div className="flex gap-2">
-          <div className="bg-amber-50 text-amber-700 px-3 py-2 rounded-xl text-[10px] font-black border border-amber-100 flex items-center gap-2">
-            <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></span>
-            PL 검토 대기: {requests.filter(r => r.status === 'PENDING_PL').length}
-          </div>
-          <div className="bg-indigo-50 text-indigo-700 px-3 py-2 rounded-xl text-[10px] font-black border border-indigo-100 flex items-center gap-2">
-            <span className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse"></span>
-            최종 승인 대기: {requests.filter(r => r.status === 'PENDING_FINAL').length}
-          </div>
+          {!isSuperAdmin && (
+            <div className="bg-amber-50 text-amber-700 px-3 py-2 rounded-xl text-[10px] font-black border border-amber-100 flex items-center gap-2">
+              <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></span>
+              내 팀 검토 대기: {requests.filter(r => r.status === 'PENDING_PL').length}
+            </div>
+          )}
+          {isSuperAdmin && (
+            <div className="bg-indigo-50 text-indigo-700 px-3 py-2 rounded-xl text-[10px] font-black border border-indigo-100 flex items-center gap-2">
+              <span className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse"></span>
+              전사 최종 승인 대기: {requests.filter(r => r.status === 'PENDING_FINAL').length}
+            </div>
+          )}
         </div>
       </div>
       
@@ -60,7 +79,7 @@ const AdminRequests: React.FC = () => {
           <table className="w-full text-left min-w-[700px]">
             <thead>
               <tr className="bg-slate-50 text-slate-400 text-[9px] uppercase font-black tracking-widest border-b border-slate-100">
-                <th className="px-6 py-4">신청자</th>
+                <th className="px-6 py-4">신청자/팀</th>
                 <th className="px-6 py-4">유형</th>
                 <th className="px-6 py-4">사유</th>
                 <th className="px-6 py-4">일정</th>
@@ -70,14 +89,15 @@ const AdminRequests: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-50">
               {requests.map(req => {
-                const canReview = !isSuperAdmin && req.status === 'PENDING_PL';
+                const canReview = !isSuperAdmin && req.status === 'PENDING_PL' && req.userId !== currentUser.id;
                 const canFinalApprove = isSuperAdmin && req.status === 'PENDING_FINAL';
-                const canReject = (isSuperAdmin && (req.status === 'PENDING_PL' || req.status === 'PENDING_FINAL')) || (!isSuperAdmin && req.status === 'PENDING_PL');
+                const canReject = (isSuperAdmin && (req.status === 'PENDING_PL' || req.status === 'PENDING_FINAL')) || (!isSuperAdmin && req.status === 'PENDING_PL' && req.userId !== currentUser.id);
 
                 return (
                   <tr key={req.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-5">
                       <p className="text-sm font-black text-slate-900">{req.userName}</p>
+                      <p className="text-[9px] font-bold text-slate-400">{req.userTeam || '공통'}</p>
                     </td>
                     <td className="px-6 py-5">
                       <span className={`px-2 py-0.5 rounded text-[9px] font-black border uppercase ${LEAVE_TYPE_COLORS[req.type]}`}>{LEAVE_TYPE_LABELS[req.type]}</span>
@@ -131,6 +151,7 @@ const AdminRequests: React.FC = () => {
                         )}
                         {req.status === 'APPROVED' && <span className="text-[9px] font-black text-emerald-500 tracking-widest uppercase py-1.5">FINALIZED</span>}
                         {req.status === 'REJECTED' && <span className="text-[9px] font-black text-slate-300 tracking-widest uppercase py-1.5">REJECTED</span>}
+                        {req.userId === currentUser.id && req.status.startsWith('PENDING') && <span className="text-[9px] font-black text-slate-300 italic py-1.5">본인 신청 건</span>}
                       </div>
                     </td>
                   </tr>

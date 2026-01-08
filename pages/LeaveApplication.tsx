@@ -30,10 +30,12 @@ const LeaveApplication: React.FC = () => {
       return;
     }
     setIsSubmitting(true);
+    // Fixed: Added missing 'userTeam' property to satisfy LeaveRequest interface
     const newRequest: LeaveRequest = {
       id: `req-${Date.now()}`,
       userId: currentUser.id,
       userName: currentUser.name,
+      userTeam: currentUser.team,
       type,
       startDate,
       endDate,
