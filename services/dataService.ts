@@ -2,11 +2,17 @@
 import { User, LeaveRequest, Status, Notification, Meeting, Team } from '../types';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
-const SUPER_ADMIN_EMAIL = 'dicafrekim@naver.com';
+// 최고 관리자(Super Admin) 명단
+export const SUPER_ADMIN_EMAILS = [
+  'dicafrekim@naver.com',
+  'seo_jiyeon@naver.com' // 서지연 팀장님 추가 (실제 이메일로 수정 가능)
+];
+
+export const isSuperAdmin = (email: string) => SUPER_ADMIN_EMAILS.includes(email);
 
 const INITIAL_ADMIN: User = {
   id: 'admin-001',
-  email: SUPER_ADMIN_EMAIL,
+  email: SUPER_ADMIN_EMAILS[0],
   name: '최고관리자',
   position: '최고관리자',
   team: '공통',
@@ -57,31 +63,26 @@ export const dataService = {
   },
 
   async updateUser(userId: string, updates: Partial<User>): Promise<void> {
-    // 1. 로컬 데이터 즉시 업데이트 (항상 우선순위)
     const localData = localStorage.getItem('friendly_users');
     const users: User[] = localData ? JSON.parse(localData) : [];
     const updatedUsers = users.map(u => u.id === userId ? { ...u, ...updates } : u);
     localStorage.setItem('friendly_users', JSON.stringify(updatedUsers));
     
-    // 2. 현재 세션 유저인 경우 세션 정보도 즉시 동기화
     const sessionStr = localStorage.getItem('friendly_current_session');
     if (sessionStr) {
       const sessionUser = JSON.parse(sessionStr) as User;
       if (sessionUser.id === userId) {
         const newSession = { ...sessionUser, ...updates };
         localStorage.setItem('friendly_current_session', JSON.stringify(newSession));
-        // 이벤트를 발생시켜 헤더 등의 컴포넌트가 반응하도록 함
         window.dispatchEvent(new Event('storage'));
       }
     }
 
-    // 3. Cloud DB 비동기 업데이트 (에러가 발생해도 로컬 데이터는 유지됨)
     if (isSupabaseConfigured) {
       try {
         const { error } = await supabase.from('users').update(updates).eq('id', userId);
         if (error) {
-          console.warn('⚠️ DB Sync Warning (Schema Mismatch?):', error.message);
-          console.info('Tip: Supabase에서 position과 team 컬럼을 추가해 주세요.');
+          console.warn('⚠️ DB Sync Warning:', error.message);
         }
       } catch (e) {
         console.error('❌ DB 업데이트 에러:', e);
@@ -122,7 +123,7 @@ export const dataService = {
     
     let initialStatus: Status = 'PENDING_PL';
     if (currentUser) {
-      if (currentUser.email === SUPER_ADMIN_EMAIL) {
+      if (isSuperAdmin(currentUser.email)) {
         initialStatus = 'APPROVED';
       } else if (currentUser.role === 'ADMIN') {
         initialStatus = 'PENDING_FINAL';

@@ -2,9 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { LeaveRequest, User } from '../types';
 import { LEAVE_TYPE_LABELS, LEAVE_TYPE_COLORS } from '../constants';
-import { dataService } from '../services/dataService';
-
-const SUPER_ADMIN_EMAIL = 'dicafrekim@naver.com';
+import { dataService, isSuperAdmin } from '../services/dataService';
 
 const AdminRequests: React.FC = () => {
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
@@ -19,11 +17,11 @@ const AdminRequests: React.FC = () => {
       setCurrentUser(parsedUser);
       
       const allRequests = await dataService.getRequests();
-      const isSuperAdmin = parsedUser.email === SUPER_ADMIN_EMAIL;
+      const userIsSuper = isSuperAdmin(parsedUser.email);
       
       // Filter logic based on role and team
       let filtered = allRequests;
-      if (!isSuperAdmin) {
+      if (!userIsSuper) {
         // PL only sees requests from their own team that are at 'PENDING_PL' status
         filtered = allRequests.filter(req => 
           req.userTeam === parsedUser.team && 
@@ -47,7 +45,7 @@ const AdminRequests: React.FC = () => {
 
   if (loading || !currentUser) return <div className="flex items-center justify-center h-full pt-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>;
 
-  const isSuperAdmin = currentUser.email === SUPER_ADMIN_EMAIL;
+  const userIsSuper = isSuperAdmin(currentUser.email);
 
   return (
     <div className="space-y-6 md:space-y-8 pb-10 px-2">
@@ -55,17 +53,17 @@ const AdminRequests: React.FC = () => {
         <div>
           <h1 className="text-2xl md:text-3xl font-black text-slate-900">신청 승인 관리</h1>
           <p className="text-xs font-bold text-slate-400 mt-1">
-            {isSuperAdmin ? '✨ 최고관리자: 전사 최종 승인 권한' : `👤 PL (${currentUser.team}팀): 1차 검토 권한`}
+            {userIsSuper ? '✨ 최고관리자: 전사 최종 승인 권한' : `👤 PL (${currentUser.team}팀): 1차 검토 권한`}
           </p>
         </div>
         <div className="flex gap-2">
-          {!isSuperAdmin && (
+          {!userIsSuper && (
             <div className="bg-amber-50 text-amber-700 px-3 py-2 rounded-xl text-[10px] font-black border border-amber-100 flex items-center gap-2">
               <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></span>
               내 팀 검토 대기: {requests.filter(r => r.status === 'PENDING_PL').length}
             </div>
           )}
-          {isSuperAdmin && (
+          {userIsSuper && (
             <div className="bg-indigo-50 text-indigo-700 px-3 py-2 rounded-xl text-[10px] font-black border border-indigo-100 flex items-center gap-2">
               <span className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse"></span>
               전사 최종 승인 대기: {requests.filter(r => r.status === 'PENDING_FINAL').length}
@@ -89,9 +87,9 @@ const AdminRequests: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-50">
               {requests.map(req => {
-                const canReview = !isSuperAdmin && req.status === 'PENDING_PL' && req.userId !== currentUser.id;
-                const canFinalApprove = isSuperAdmin && req.status === 'PENDING_FINAL';
-                const canReject = (isSuperAdmin && (req.status === 'PENDING_PL' || req.status === 'PENDING_FINAL')) || (!isSuperAdmin && req.status === 'PENDING_PL' && req.userId !== currentUser.id);
+                const canReview = !userIsSuper && req.status === 'PENDING_PL' && req.userId !== currentUser.id;
+                const canFinalApprove = userIsSuper && req.status === 'PENDING_FINAL';
+                const canReject = (userIsSuper && (req.status === 'PENDING_PL' || req.status === 'PENDING_FINAL')) || (!userIsSuper && req.status === 'PENDING_PL' && req.userId !== currentUser.id);
 
                 return (
                   <tr key={req.id} className="hover:bg-slate-50/50 transition-colors">

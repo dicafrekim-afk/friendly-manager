@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { User } from '../types';
+import { isSuperAdmin } from '../services/dataService';
 
 interface SidebarProps {
   user: User;
@@ -27,8 +28,10 @@ const Sidebar: React.FC<SidebarProps> = ({ user, logout, isOpen, onClose }) => {
 
   const adminItems = [
     { to: '/admin/requests', label: '신청 승인 관리', icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /> },
-    { to: '/admin/users', label: '팀원 관리', icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /> },
+    { to: '/admin/users', label: '팀원 관리', icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />, superOnly: true },
   ];
+
+  const userIsSuper = isSuperAdmin(user.email);
 
   return (
     <aside className={`
@@ -78,25 +81,30 @@ const Sidebar: React.FC<SidebarProps> = ({ user, logout, isOpen, onClose }) => {
         {user.role === 'ADMIN' && (
           <>
             <div className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em] mt-10 mb-4 px-4">Admin</div>
-            {adminItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                onClick={() => onClose()}
-                className={({ isActive }) =>
-                  `flex items-center gap-4 px-6 py-4 rounded-[20px] transition-all duration-300 group ${
-                    isActive 
-                      ? 'bg-emerald-500 text-white shadow-xl shadow-emerald-100' 
-                      : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-                  }`
-                }
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  {item.icon}
-                </svg>
-                <span className="font-bold text-sm">{item.label}</span>
-              </NavLink>
-            ))}
+            {adminItems.map((item) => {
+              // 최고 관리자 전용 메뉴 필터링
+              if (item.superOnly && !userIsSuper) return null;
+
+              return (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => onClose()}
+                  className={({ isActive }) =>
+                    `flex items-center gap-4 px-6 py-4 rounded-[20px] transition-all duration-300 group ${
+                      isActive 
+                        ? 'bg-emerald-500 text-white shadow-xl shadow-emerald-100' 
+                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                    }`
+                  }
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {item.icon}
+                  </svg>
+                  <span className="font-bold text-sm">{item.label}</span>
+                </NavLink>
+              );
+            })}
           </>
         )}
       </nav>

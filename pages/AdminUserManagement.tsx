@@ -1,10 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, Role, Team } from '../types';
-import { dataService } from '../services/dataService';
+import { dataService, isSuperAdmin } from '../services/dataService';
 import { isSupabaseConfigured } from '../lib/supabase';
 
-const SUPER_ADMIN_EMAIL = 'dicafrekim@naver.com';
 const TEAMS: Team[] = ['공채', '경채', '특정직', '공통'];
 
 const AdminUserManagement: React.FC = () => {
@@ -57,7 +56,7 @@ const AdminUserManagement: React.FC = () => {
 
   const handleDeleteUser = async () => {
     if (!editingUser) return;
-    if (editingUser.email === SUPER_ADMIN_EMAIL) {
+    if (isSuperAdmin(editingUser.email)) {
       alert('최고관리자 계정은 삭제할 수 없습니다.');
       return;
     }
@@ -89,7 +88,7 @@ const AdminUserManagement: React.FC = () => {
       
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         {users.map(u => {
-          const isSuperAdmin = u.email === SUPER_ADMIN_EMAIL;
+          const userIsSuper = isSuperAdmin(u.email);
           return (
             <div 
               key={u.id} 
@@ -102,10 +101,10 @@ const AdminUserManagement: React.FC = () => {
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <span className={`px-2 py-1 text-[9px] font-black rounded-full border tracking-widest ${
-                    isSuperAdmin ? 'bg-slate-900 text-white border-slate-900' :
+                    userIsSuper ? 'bg-slate-900 text-white border-slate-900' :
                     u.role === 'ADMIN' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-slate-50 text-slate-400 border-slate-100'
                   }`}>
-                    {isSuperAdmin ? 'SUPER ADMIN' : u.role === 'ADMIN' ? 'PL' : 'USER'}
+                    {userIsSuper ? 'SUPER ADMIN' : u.role === 'ADMIN' ? 'PL' : 'USER'}
                   </span>
                   <span className="px-2 py-1 text-[8px] font-black bg-slate-100 text-slate-500 rounded-lg">{u.team || '공통'}</span>
                 </div>
@@ -158,7 +157,6 @@ const AdminUserManagement: React.FC = () => {
 
       {editingUser && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4 animate-in fade-in">
-          {/* overflow-hidden과 scrollbar-hide를 조합하여 스크롤바 완전 제거 */}
           <div className="bg-white w-full max-w-lg rounded-t-[32px] md:rounded-[40px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-10 md:slide-in-from-bottom-0 duration-400 max-h-[90vh] flex flex-col scrollbar-hide">
             <div className="p-6 md:p-8 border-b flex justify-between items-center bg-slate-50/50 shrink-0">
               <h3 className="text-xl font-black text-slate-900">상세 설정</h3>
@@ -173,7 +171,7 @@ const AdminUserManagement: React.FC = () => {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-lg font-black text-slate-900">{editingUser.name}</p>
-                    {editingUser.email === SUPER_ADMIN_EMAIL && (
+                    {isSuperAdmin(editingUser.email) && (
                       <span className="px-2 py-0.5 bg-slate-900 text-white text-[9px] font-black rounded-full">SYSTEM SUPER ADMIN</span>
                     )}
                   </div>
@@ -206,7 +204,7 @@ const AdminUserManagement: React.FC = () => {
                 </div>
               </div>
 
-              {editingUser.email !== SUPER_ADMIN_EMAIL ? (
+              {!isSuperAdmin(editingUser.email) ? (
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">권한 설정</label>
                   <div className="grid grid-cols-2 gap-3">
@@ -238,7 +236,7 @@ const AdminUserManagement: React.FC = () => {
                   <button type="submit" className="flex-1 py-4 text-xs font-black text-white bg-indigo-600 rounded-2xl shadow-lg hover:bg-indigo-700 transition-all">정보 저장</button>
                 </div>
                 
-                {editingUser.email !== SUPER_ADMIN_EMAIL && (
+                {!isSuperAdmin(editingUser.email) && (
                   <button 
                     type="button" 
                     onClick={handleDeleteUser}
