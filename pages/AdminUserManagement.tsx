@@ -158,6 +158,7 @@ const AdminUserManagement: React.FC = () => {
 
       {editingUser && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4 animate-in fade-in">
+          {/* overflow-hidden과 scrollbar-hide를 조합하여 스크롤바 완전 제거 */}
           <div className="bg-white w-full max-w-lg rounded-t-[32px] md:rounded-[40px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-10 md:slide-in-from-bottom-0 duration-400 max-h-[90vh] flex flex-col scrollbar-hide">
             <div className="p-6 md:p-8 border-b flex justify-between items-center bg-slate-50/50 shrink-0">
               <h3 className="text-xl font-black text-slate-900">상세 설정</h3>
@@ -173,7 +174,7 @@ const AdminUserManagement: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <p className="text-lg font-black text-slate-900">{editingUser.name}</p>
                     {editingUser.email === SUPER_ADMIN_EMAIL && (
-                      <span className="px-2 py-0.5 bg-slate-900 text-white text-[9px] font-black rounded-full">SUPER ADMIN</span>
+                      <span className="px-2 py-0.5 bg-slate-900 text-white text-[9px] font-black rounded-full">SYSTEM SUPER ADMIN</span>
                     )}
                   </div>
                   <p className="text-[10px] font-bold text-slate-400 truncate">{editingUser.email}</p>
@@ -185,7 +186,7 @@ const AdminUserManagement: React.FC = () => {
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">직급</label>
                   <input 
                     type="text" 
-                    value={editingUser.position} 
+                    value={editingUser.position || ''} 
                     onChange={(e) => setEditingUser({...editingUser, position: e.target.value})}
                     placeholder="예: 대리"
                     className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-2 border-slate-50 focus:border-indigo-600 focus:bg-white outline-none text-sm font-black transition-all"
@@ -205,13 +206,18 @@ const AdminUserManagement: React.FC = () => {
                 </div>
               </div>
 
-              {editingUser.email !== SUPER_ADMIN_EMAIL && (
+              {editingUser.email !== SUPER_ADMIN_EMAIL ? (
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">권한 설정</label>
                   <div className="grid grid-cols-2 gap-3">
                     <button type="button" onClick={() => setEditingUser({...editingUser, role: 'USER'})} className={`py-4 rounded-2xl border-2 text-[11px] font-black transition-all ${editingUser.role === 'USER' ? 'border-indigo-600 bg-indigo-50 text-indigo-600' : 'border-slate-100 text-slate-400 hover:border-slate-200'}`}>USER (팀원)</button>
                     <button type="button" onClick={() => setEditingUser({...editingUser, role: 'ADMIN'})} className={`py-4 rounded-2xl border-2 text-[11px] font-black transition-all ${editingUser.role === 'ADMIN' ? 'border-amber-500 bg-amber-50 text-amber-600' : 'border-slate-100 text-slate-400 hover:border-slate-200'}`}>PL (팀장)</button>
                   </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">권한</label>
+                   <div className="px-5 py-4 rounded-2xl bg-slate-900 text-white text-xs font-black text-center uppercase tracking-widest">Master Authority</div>
                 </div>
               )}
 
@@ -226,7 +232,7 @@ const AdminUserManagement: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-3 pt-4 shrink-0 pb-2">
+              <div className="flex flex-col gap-3 pt-4 shrink-0 pb-6">
                 <div className="flex gap-3">
                   <button type="button" onClick={() => setEditingUser(null)} className="flex-1 py-4 text-xs font-black text-slate-400 bg-slate-100 rounded-2xl hover:bg-slate-200 transition-colors">취소</button>
                   <button type="submit" className="flex-1 py-4 text-xs font-black text-white bg-indigo-600 rounded-2xl shadow-lg hover:bg-indigo-700 transition-all">정보 저장</button>

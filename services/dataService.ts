@@ -57,27 +57,34 @@ export const dataService = {
   },
 
   async updateUser(userId: string, updates: Partial<User>): Promise<void> {
-    // 1. Cloud DB 업데이트
-    if (isSupabaseConfigured) {
-      try {
-        const { error } = await supabase.from('users').update(updates).eq('id', userId);
-        if (error) console.error('❌ Supabase Update Error:', error);
-      } catch (e) {
-        console.error('❌ DB 업데이트 실패:', e);
-      }
-    }
-
-    // 2. 로컬 스토리지 즉시 업데이트 (항상 최신 상태 유지)
-    const users = await this.getUsers();
+    // 1. 로컬 데이터 즉시 업데이트 (항상 우선순위)
+    const localData = localStorage.getItem('friendly_users');
+    const users: User[] = localData ? JSON.parse(localData) : [];
     const updatedUsers = users.map(u => u.id === userId ? { ...u, ...updates } : u);
     localStorage.setItem('friendly_users', JSON.stringify(updatedUsers));
     
-    // 3. 세션 동기화
+    // 2. 현재 세션 유저인 경우 세션 정보도 즉시 동기화
     const sessionStr = localStorage.getItem('friendly_current_session');
     if (sessionStr) {
       const sessionUser = JSON.parse(sessionStr) as User;
       if (sessionUser.id === userId) {
-        localStorage.setItem('friendly_current_session', JSON.stringify({ ...sessionUser, ...updates }));
+        const newSession = { ...sessionUser, ...updates };
+        localStorage.setItem('friendly_current_session', JSON.stringify(newSession));
+        // 이벤트를 발생시켜 헤더 등의 컴포넌트가 반응하도록 함
+        window.dispatchEvent(new Event('storage'));
+      }
+    }
+
+    // 3. Cloud DB 비동기 업데이트 (에러가 발생해도 로컬 데이터는 유지됨)
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase.from('users').update(updates).eq('id', userId);
+        if (error) {
+          console.warn('⚠️ DB Sync Warning (Schema Mismatch?):', error.message);
+          console.info('Tip: Supabase에서 position과 team 컬럼을 추가해 주세요.');
+        }
+      } catch (e) {
+        console.error('❌ DB 업데이트 에러:', e);
       }
     }
   },
