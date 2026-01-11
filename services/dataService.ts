@@ -92,6 +92,11 @@ export const dataService = {
     }
   },
 
+  async findUserToReset(email: string, name: string): Promise<User | null> {
+    const users = await this.getUsers();
+    return users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.name === name) || null;
+  },
+
   async deleteUser(userId: string): Promise<void> {
     if (isSupabaseConfigured) {
       try {
