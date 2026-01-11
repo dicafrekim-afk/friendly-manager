@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { User } from '../types';
-import { dataService } from '../services/dataService';
+import { dataService, isSuperAdmin } from '../services/dataService';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -37,7 +37,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
       if (user) {
         if (user.password && user.password === password) {
-          onLogin(user);
+          // 최고 관리자 명단에 있는 경우 세션 내 role을 ADMIN으로 보정하여 즉시 반영
+          const sessionUser = { ...user };
+          if (isSuperAdmin(user.email)) {
+            sessionUser.role = 'ADMIN';
+            sessionUser.status = 'APPROVED'; // 최고관리자는 항상 승인 상태
+          }
+          onLogin(sessionUser);
           navigate('/');
         } else {
           setError('비밀번호가 일치하지 않습니다. 다시 확인해 주세요.');

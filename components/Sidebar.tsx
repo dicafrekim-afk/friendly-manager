@@ -32,6 +32,8 @@ const Sidebar: React.FC<SidebarProps> = ({ user, logout, isOpen, onClose }) => {
   ];
 
   const userIsSuper = isSuperAdmin(user.email);
+  // 관리자 메뉴 노출 조건: 역할이 ADMIN이거나 최고관리자 명단에 있는 경우
+  const showAdminMenu = user.role === 'ADMIN' || userIsSuper;
 
   return (
     <aside className={`
@@ -78,11 +80,11 @@ const Sidebar: React.FC<SidebarProps> = ({ user, logout, isOpen, onClose }) => {
           </NavLink>
         ))}
 
-        {user.role === 'ADMIN' && (
+        {showAdminMenu && (
           <>
             <div className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em] mt-10 mb-4 px-4">Admin</div>
             {adminItems.map((item) => {
-              // 최고 관리자 전용 메뉴 필터링
+              // 최고 관리자 전용 메뉴 필터링 (팀원 관리는 최고관리자만)
               if (item.superOnly && !userIsSuper) return null;
 
               return (
