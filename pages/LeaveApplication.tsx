@@ -65,8 +65,9 @@ const LeaveApplication: React.FC = () => {
       await dataService.createRequest(newRequest);
       setSubmitted(true);
     } catch (error: any) {
-      console.error('신청 제출 실패:', error);
-      alert(`신청 중 오류가 발생했습니다: ${error.message || '데이터베이스 연결 확인이 필요합니다.'}`);
+      console.error('신청 제출 실패 상세:', error);
+      const errorMessage = error.message || '데이터베이스 연결을 확인해 주세요.';
+      alert(`⚠️ 신청 중 오류가 발생했습니다.\n\n내용: ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
     }

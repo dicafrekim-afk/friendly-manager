@@ -161,18 +161,21 @@ export const dataService = {
     const finalRequest = { 
       ...request, 
       status: initialStatus,
-      userTeam: currentUser?.team || '공통'
+      userTeam: currentUser?.team || request.userTeam || '공통'
     };
 
     if (isSupabaseConfigured) {
       const { error } = await supabase.from('leave_requests').insert([finalRequest]);
       if (error) {
-        console.error('❌ Supabase insert error:', error);
-        throw error; // 에러를 던져야 LeaveApplication에서 인지함
+        console.error('❌ Supabase insert error detailed:', error);
+        // PGRST204는 컬럼 미매칭 에러
+        if (error.code === 'PGRST204') {
+          throw new Error(`데이터베이스 구조(userTeam 컬럼)가 업데이트되지 않았습니다. 관리자에게 문의해 주세요. (${error.message})`);
+        }
+        throw error;
       }
     }
     
-    // 로컬 스토리지도 동기화 (오프라인 대비)
     const reqs = await this.getRequests();
     localStorage.setItem('friendly_requests', JSON.stringify([...reqs.filter(r => r.id !== request.id), finalRequest]));
   },
