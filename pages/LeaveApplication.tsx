@@ -15,7 +15,6 @@ const LeaveApplication: React.FC = () => {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  // 날짜 차이 계산 (편의 기능)
   const diffDays = useMemo(() => {
     if (!startDate || !endDate) return 0;
     const start = new Date(startDate);
@@ -35,32 +34,42 @@ const LeaveApplication: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!startDate || !endDate) {
+      alert('시작일과 종료일을 입력해 주세요.');
+      return;
+    }
     if (new Date(startDate) > new Date(endDate)) {
       alert('종료일은 시작일보다 빠를 수 없습니다.');
       return;
     }
     
-    // 잔여 연차 체크 (VACATION인 경우)
     if (type === 'VACATION' && diffDays > (currentUser.totalLeave - currentUser.usedLeave)) {
       if (!window.confirm('신청하신 휴가 일수가 잔여 연차보다 많습니다. 계속하시겠습니까?')) return;
     }
 
     setIsSubmitting(true);
-    const newRequest: LeaveRequest = {
-      id: `req-${Date.now()}`,
-      userId: currentUser.id,
-      userName: currentUser.name,
-      userTeam: currentUser.team,
-      type,
-      startDate,
-      endDate,
-      reason,
-      status: 'PENDING',
-      createdAt: new Date().toISOString()
-    };
-    await dataService.createRequest(newRequest);
-    setIsSubmitting(false);
-    setSubmitted(true);
+    try {
+      const newRequest: LeaveRequest = {
+        id: `req-${Date.now()}`,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        userTeam: currentUser.team,
+        type,
+        startDate,
+        endDate,
+        reason,
+        status: 'PENDING',
+        createdAt: new Date().toISOString()
+      };
+      
+      await dataService.createRequest(newRequest);
+      setSubmitted(true);
+    } catch (error: any) {
+      console.error('신청 제출 실패:', error);
+      alert(`신청 중 오류가 발생했습니다: ${error.message || '데이터베이스 연결 확인이 필요합니다.'}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (submitted) {
@@ -139,7 +148,7 @@ const LeaveApplication: React.FC = () => {
           <textarea required rows={5} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="신청 사유를 자유롭게 입력해 주세요. (예: 개인 사정으로 인한 휴가)" className="w-full px-6 py-6 rounded-3xl bg-slate-50 border-2 border-slate-50 focus:bg-white focus:border-indigo-600 outline-none text-sm font-bold resize-none transition-all placeholder:text-slate-300" />
         </div>
 
-        <button disabled={isSubmitting} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black text-lg shadow-2xl shadow-indigo-100 hover:bg-indigo-700 active:scale-[0.98] transition-all disabled:bg-slate-200">
+        <button type="submit" disabled={isSubmitting} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black text-lg shadow-2xl shadow-indigo-100 hover:bg-indigo-700 active:scale-[0.98] transition-all disabled:bg-slate-200">
           {isSubmitting ? '전송 중...' : '제출하기'}
         </button>
       </form>

@@ -34,15 +34,13 @@ export const dataService = {
         if (status === 404) throw new Error('Table not found');
         if (error) throw error;
         
-        // 데이터가 있고, 비밀번호 필드가 없는 사용자가 있다면 보정
         if (data && data.length > 0) {
           return data.map(u => ({
             ...u,
-            password: u.password || 'user1234' // DB에 비밀번호가 없을 경우 대비한 폴백
+            password: u.password || 'user1234'
           })) as User[];
         }
         
-        // 데이터가 아예 없는 경우 초기 관리자 등록
         await this.register(INITIAL_ADMIN);
         return [INITIAL_ADMIN];
       } catch (e) {
@@ -63,15 +61,14 @@ export const dataService = {
       ...user, 
       position: user.position || '팀원',
       team: user.team || '공통',
-      password: user.password || 'user1234' // 비밀번호 보장
+      password: user.password || 'user1234'
     };
     
     if (isSupabaseConfigured) {
-      try {
-        const { error } = await supabase.from('users').upsert([userWithDefaults]);
-        if (error) throw error;
-      } catch (e) {
-        console.error('❌ 회원 등록 실패:', e);
+      const { error } = await supabase.from('users').upsert([userWithDefaults]);
+      if (error) {
+        console.error('❌ Supabase register error:', error);
+        throw error;
       }
     }
     const users = await this.getUsers();
@@ -95,13 +92,10 @@ export const dataService = {
     }
 
     if (isSupabaseConfigured) {
-      try {
-        const { error } = await supabase.from('users').update(updates).eq('id', userId);
-        if (error) {
-          console.warn('⚠️ DB Sync Warning:', error.message);
-        }
-      } catch (e) {
-        console.error('❌ DB 업데이트 에러:', e);
+      const { error } = await supabase.from('users').update(updates).eq('id', userId);
+      if (error) {
+        console.error('❌ Supabase update error:', error);
+        throw error;
       }
     }
   },
@@ -111,13 +105,11 @@ export const dataService = {
     const searchEmail = email.toLowerCase().trim();
     const searchName = name.trim();
     
-    // 1. 이메일과 성함이 완벽히 일치하는 경우
     let user = users.find(u => 
       u.email.toLowerCase().trim() === searchEmail && 
       u.name.trim() === searchName
     );
 
-    // 2. 최고관리자의 경우 성함 매칭이 안될 때를 대비해 이메일로 보완 검색
     if (!user && SUPER_ADMIN_EMAILS.includes(searchEmail)) {
         user = users.find(u => u.email.toLowerCase().trim() === searchEmail);
     }
@@ -127,9 +119,7 @@ export const dataService = {
 
   async deleteUser(userId: string): Promise<void> {
     if (isSupabaseConfigured) {
-      try {
-        await supabase.from('users').delete().eq('id', userId);
-      } catch (e) {}
+      await supabase.from('users').delete().eq('id', userId);
     }
     const users = await this.getUsers();
     const filtered = users.filter(u => u.id !== userId);
@@ -145,8 +135,11 @@ export const dataService = {
     if (isSupabaseConfigured) {
       try {
         const { data, error } = await supabase.from('leave_requests').select('*').order('createdAt', { ascending: false });
-        if (!error && data) return data as LeaveRequest[];
-      } catch (e) {}
+        if (error) throw error;
+        return data as LeaveRequest[];
+      } catch (e) {
+        console.error('❌ Supabase getRequests error:', e);
+      }
     }
     const localData = localStorage.getItem('friendly_requests');
     return localData ? JSON.parse(localData) : [];
@@ -172,20 +165,22 @@ export const dataService = {
     };
 
     if (isSupabaseConfigured) {
-      try {
-        await supabase.from('leave_requests').insert([finalRequest]);
-        return;
-      } catch (e) {}
+      const { error } = await supabase.from('leave_requests').insert([finalRequest]);
+      if (error) {
+        console.error('❌ Supabase insert error:', error);
+        throw error; // 에러를 던져야 LeaveApplication에서 인지함
+      }
     }
+    
+    // 로컬 스토리지도 동기화 (오프라인 대비)
     const reqs = await this.getRequests();
     localStorage.setItem('friendly_requests', JSON.stringify([...reqs.filter(r => r.id !== request.id), finalRequest]));
   },
 
   async updateRequestStatus(requestId: string, status: Status): Promise<void> {
     if (isSupabaseConfigured) {
-      try {
-        await supabase.from('leave_requests').update({ status }).eq('id', requestId);
-      } catch (e) {}
+      const { error } = await supabase.from('leave_requests').update({ status }).eq('id', requestId);
+      if (error) throw error;
     }
     const reqs = await this.getRequests();
     const targetReq = reqs.find(r => r.id === requestId);
@@ -212,9 +207,12 @@ export const dataService = {
   async getMeetings(): Promise<Meeting[]> {
     if (isSupabaseConfigured) {
       try {
-        const { data } = await supabase.from('meetings').select('*');
-        if (data) return data as Meeting[];
-      } catch (e) {}
+        const { data, error } = await supabase.from('meetings').select('*');
+        if (error) throw error;
+        return data as Meeting[];
+      } catch (e) {
+        console.error('❌ Supabase getMeetings error:', e);
+      }
     }
     const localData = localStorage.getItem('friendly_meetings');
     return localData ? JSON.parse(localData) : [];
@@ -222,7 +220,8 @@ export const dataService = {
 
   async createMeeting(meeting: Meeting): Promise<void> {
     if (isSupabaseConfigured) {
-      try { await supabase.from('meetings').insert([meeting]); } catch (e) {}
+      const { error } = await supabase.from('meetings').insert([meeting]);
+      if (error) throw error;
     }
     const meetings = await this.getMeetings();
     localStorage.setItem('friendly_meetings', JSON.stringify([...meetings.filter(m => m.id !== meeting.id), meeting]));
