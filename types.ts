@@ -7,7 +7,7 @@ export type Team = '공채' | '경채' | '특정직' | '공통';
 export interface User {
   id: string;
   email: string;
-  password?: string; // 비밀번호 필드 추가
+  password: string; // 필수 필드로 변경
   name: string;
   position: string;
   team: Team; 

@@ -13,9 +13,9 @@ export const isSuperAdmin = (email: string) => SUPER_ADMIN_EMAILS.includes(email
 
 const INITIAL_ADMIN: User = {
   id: 'admin-001',
-  email: SUPER_ADMIN_EMAILS[0],
-  password: 'admin1234', // 초기 관리자 비밀번호 설정
-  name: '최고관리자',
+  email: SUPER_ADMIN_EMAILS[0], // dicafrekim@naver.com
+  password: 'admin1234', 
+  name: '김구현', 
   position: '최고관리자',
   team: '공통',
   role: 'ADMIN',
@@ -33,7 +33,14 @@ export const dataService = {
         const { data, error, status } = await supabase.from('users').select('*').order('joinDate', { ascending: false });
         if (status === 404) throw new Error('Table not found');
         if (error) throw error;
-        if (data && data.length > 0) return data as User[];
+        
+        // 데이터가 있고, 비밀번호 필드가 없는 사용자가 있다면 보정
+        if (data && data.length > 0) {
+          return data.map(u => ({
+            ...u,
+            password: u.password || 'user1234' // DB에 비밀번호가 없을 경우 대비한 폴백
+          })) as User[];
+        }
         
         // 데이터가 아예 없는 경우 초기 관리자 등록
         await this.register(INITIAL_ADMIN);
@@ -55,12 +62,17 @@ export const dataService = {
     const userWithDefaults = { 
       ...user, 
       position: user.position || '팀원',
-      team: user.team || '공통'
+      team: user.team || '공통',
+      password: user.password || 'user1234' // 비밀번호 보장
     };
+    
     if (isSupabaseConfigured) {
       try {
-        await supabase.from('users').upsert([userWithDefaults]);
-      } catch (e) {}
+        const { error } = await supabase.from('users').upsert([userWithDefaults]);
+        if (error) throw error;
+      } catch (e) {
+        console.error('❌ 회원 등록 실패:', e);
+      }
     }
     const users = await this.getUsers();
     localStorage.setItem('friendly_users', JSON.stringify([...users.filter(u => u.id !== user.id), userWithDefaults]));
@@ -99,11 +111,18 @@ export const dataService = {
     const searchEmail = email.toLowerCase().trim();
     const searchName = name.trim();
     
-    // 이메일과 성함을 공백 없이 비교하여 유연하게 검색
-    return users.find(u => 
+    // 1. 이메일과 성함이 완벽히 일치하는 경우
+    let user = users.find(u => 
       u.email.toLowerCase().trim() === searchEmail && 
       u.name.trim() === searchName
-    ) || null;
+    );
+
+    // 2. 최고관리자의 경우 성함 매칭이 안될 때를 대비해 이메일로 보완 검색
+    if (!user && SUPER_ADMIN_EMAILS.includes(searchEmail)) {
+        user = users.find(u => u.email.toLowerCase().trim() === searchEmail);
+    }
+    
+    return user || null;
   },
 
   async deleteUser(userId: string): Promise<void> {
