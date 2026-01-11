@@ -22,6 +22,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [resetStep, setResetStep] = useState<'IDENTIFY' | 'RESET' | 'SUCCESS'>('IDENTIFY');
   const [foundUser, setFoundUser] = useState<User | null>(null);
   const [forgotError, setForgotError] = useState('');
+  const [isForgotLoading, setIsForgotLoading] = useState(false);
 
   const navigate = useNavigate();
 
@@ -32,7 +33,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     
     try {
       const users = await dataService.getUsers();
-      const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+      const user = users.find(u => u.email.toLowerCase().trim() === email.toLowerCase().trim());
 
       if (user) {
         if (user.password && user.password === password) {
@@ -42,10 +43,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           setError('비밀번호가 일치하지 않습니다. 다시 확인해 주세요.');
         }
       } else {
-        setError('등록되지 않은 이메일입니다. 이메일을 확인하거나 회원가입을 진행해 주세요.');
+        setError('등록되지 않은 이메일입니다.');
       }
     } catch (err) {
-      setError('데이터를 불러오는 중 오류가 발생했습니다.');
+      setError('로그인 처리 중 오류가 발생했습니다.');
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -55,21 +56,34 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const handleIdentify = async (e: React.FormEvent) => {
     e.preventDefault();
     setForgotError('');
-    const user = await dataService.findUserToReset(forgotEmail, forgotName);
-    if (user) {
-      setFoundUser(user);
-      setResetStep('RESET');
-    } else {
-      setForgotError('일치하는 사용자 정보를 찾을 수 없습니다.');
+    setIsForgotLoading(true);
+    try {
+      const user = await dataService.findUserToReset(forgotEmail, forgotName);
+      if (user) {
+        setFoundUser(user);
+        setResetStep('RESET');
+      } else {
+        setForgotError('일치하는 사용자 정보를 찾을 수 없습니다. 가입 시 입력한 성함과 이메일을 정확히 입력했는지 확인해 주세요.');
+      }
+    } catch (err) {
+      setForgotError('조회 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setIsForgotLoading(false);
     }
   };
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (foundUser && newPassword) {
-      await dataService.updateUser(foundUser.id, { password: newPassword });
-      setResetStep('SUCCESS');
-      // Reset after 3 seconds or on close
+      setIsForgotLoading(true);
+      try {
+        await dataService.updateUser(foundUser.id, { password: newPassword });
+        setResetStep('SUCCESS');
+      } catch (err) {
+        setForgotError('비밀번호 변경에 실패했습니다.');
+      } finally {
+        setIsForgotLoading(false);
+      }
     }
   };
 
@@ -81,6 +95,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setNewPassword('');
     setFoundUser(null);
     setForgotError('');
+    setIsForgotLoading(false);
   };
 
   return (
@@ -168,7 +183,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               {resetStep === 'IDENTIFY' && (
                 <form onSubmit={handleIdentify} className="space-y-4">
                   <p className="text-xs font-bold text-slate-500 mb-4 leading-relaxed">가입 시 등록한 이메일과 성함을 입력해 주세요.</p>
-                  {forgotError && <p className="text-[10px] font-bold text-red-500 bg-red-50 p-3 rounded-xl border border-red-100">{forgotError}</p>}
+                  {forgotError && <p className="text-[10px] font-bold text-red-500 bg-red-50 p-3 rounded-xl border border-red-100 mb-2 leading-relaxed">{forgotError}</p>}
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">이메일</label>
                     <input required type="email" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} className="w-full px-5 py-3 rounded-xl bg-slate-50 border-2 border-slate-50 focus:border-indigo-600 focus:bg-white outline-none text-sm font-bold" placeholder="you@company.com" />
@@ -177,7 +192,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">성함</label>
                     <input required type="text" value={forgotName} onChange={(e) => setForgotName(e.target.value)} className="w-full px-5 py-3 rounded-xl bg-slate-50 border-2 border-slate-50 focus:border-indigo-600 focus:bg-white outline-none text-sm font-bold" placeholder="홍길동" />
                   </div>
-                  <button type="submit" className="w-full py-4 bg-indigo-600 text-white rounded-xl font-black text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all mt-2">확인</button>
+                  <button type="submit" disabled={isForgotLoading} className="w-full py-4 bg-indigo-600 text-white rounded-xl font-black text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all mt-2 disabled:bg-slate-300">
+                    {isForgotLoading ? '확인 중...' : '확인'}
+                  </button>
                 </form>
               )}
 
@@ -192,7 +209,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">새 비밀번호</label>
                     <input required type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full px-5 py-3 rounded-xl bg-slate-50 border-2 border-slate-50 focus:border-indigo-600 focus:bg-white outline-none text-sm font-bold" placeholder="••••••••" />
                   </div>
-                  <button type="submit" className="w-full py-4 bg-indigo-600 text-white rounded-xl font-black text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all mt-2">비밀번호 변경하기</button>
+                  <button type="submit" disabled={isForgotLoading} className="w-full py-4 bg-indigo-600 text-white rounded-xl font-black text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all mt-2 disabled:bg-slate-300">
+                    {isForgotLoading ? '변경 중...' : '비밀번호 변경하기'}
+                  </button>
                 </form>
               )}
 

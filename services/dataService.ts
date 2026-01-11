@@ -9,7 +9,7 @@ export const SUPER_ADMIN_EMAILS = [
   'lankypark@gmail.com'  // 박희수(lankypark) 님 최고 관리자 권한 부여
 ];
 
-export const isSuperAdmin = (email: string) => SUPER_ADMIN_EMAILS.includes(email);
+export const isSuperAdmin = (email: string) => SUPER_ADMIN_EMAILS.includes(email.toLowerCase().trim());
 
 const INITIAL_ADMIN: User = {
   id: 'admin-001',
@@ -34,6 +34,8 @@ export const dataService = {
         if (status === 404) throw new Error('Table not found');
         if (error) throw error;
         if (data && data.length > 0) return data as User[];
+        
+        // 데이터가 아예 없는 경우 초기 관리자 등록
         await this.register(INITIAL_ADMIN);
         return [INITIAL_ADMIN];
       } catch (e) {
@@ -94,7 +96,14 @@ export const dataService = {
 
   async findUserToReset(email: string, name: string): Promise<User | null> {
     const users = await this.getUsers();
-    return users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.name === name) || null;
+    const searchEmail = email.toLowerCase().trim();
+    const searchName = name.trim();
+    
+    // 이메일과 성함을 공백 없이 비교하여 유연하게 검색
+    return users.find(u => 
+      u.email.toLowerCase().trim() === searchEmail && 
+      u.name.trim() === searchName
+    ) || null;
   },
 
   async deleteUser(userId: string): Promise<void> {
