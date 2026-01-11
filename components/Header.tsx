@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User, Notification } from '../types';
 import { dataService } from '../services/dataService';
 
@@ -9,6 +10,7 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ user, onMenuToggle }) => {
+  const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
@@ -96,13 +98,21 @@ const Header: React.FC<HeaderProps> = ({ user, onMenuToggle }) => {
           )}
         </div>
 
-        <div className="flex items-center gap-2 md:gap-3 pl-2 md:pl-4 border-l border-slate-100">
+        <div 
+          onClick={() => navigate('/profile')}
+          className="flex items-center gap-2 md:gap-3 pl-2 md:pl-4 border-l border-slate-100 cursor-pointer hover:opacity-80 transition-all group"
+        >
           <div className="hidden sm:block text-right">
-            <p className="text-xs font-bold text-slate-900">{user.name}</p>
+            <p className="text-xs font-black text-slate-900 group-hover:text-indigo-600">{user.name}</p>
+            <p className="text-[10px] font-bold text-slate-400">{user.position || '팀원'}</p>
           </div>
-          <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-md">
-            {user.name.charAt(0)}
-          </div>
+          {user.profileImage ? (
+            <img src={user.profileImage} alt="profile" className="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover border-2 border-slate-100 group-hover:border-indigo-600 transition-all shadow-sm" />
+          ) : (
+            <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-md group-hover:scale-110 transition-all">
+              {user.name.charAt(0)}
+            </div>
+          )}
         </div>
       </div>
     </header>

@@ -8,6 +8,7 @@ import LeaveApplication from './pages/LeaveApplication';
 import MeetingSchedule from './pages/MeetingSchedule';
 import AdminUserManagement from './pages/AdminUserManagement';
 import AdminRequests from './pages/AdminRequests';
+import Profile from './pages/Profile'; // 프로필 페이지 추가
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import { User } from './types';
@@ -17,11 +18,15 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
-    // 세션 유지 확인
-    const savedUser = localStorage.getItem('friendly_current_session');
-    if (savedUser) {
-      setCurrentUser(JSON.parse(savedUser));
-    }
+    const fetchSession = () => {
+      const savedUser = localStorage.getItem('friendly_current_session');
+      if (savedUser) {
+        setCurrentUser(JSON.parse(savedUser));
+      }
+    };
+    fetchSession();
+    window.addEventListener('storage', fetchSession);
+    return () => window.removeEventListener('storage', fetchSession);
   }, []);
 
   const login = (user: User) => {
@@ -43,8 +48,8 @@ const App: React.FC = () => {
         <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
           <div className="max-w-md w-full text-center bg-white p-8 rounded-2xl shadow-xl border border-slate-100">
             <h1 className="text-2xl font-bold mb-4">승인 대기 중</h1>
-            <p className="text-slate-600 mb-8">관리자가 승인하면 모든 기능을 이용하실 수 있습니다.</p>
-            <button onClick={logout} className="px-6 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">로그아웃</button>
+            <p className="text-slate-600 mb-8 leading-relaxed">관리자가 가입을 승인하면<br/>모든 기능을 이용하실 수 있습니다.</p>
+            <button onClick={logout} className="px-6 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-bold">로그아웃</button>
           </div>
         </div>
       );
@@ -52,26 +57,14 @@ const App: React.FC = () => {
 
     return (
       <div className="flex min-h-screen bg-slate-50 relative overflow-x-hidden">
-        {/* Mobile Sidebar Overlay */}
         {isSidebarOpen && (
-          <div 
-            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 lg:hidden"
-            onClick={() => setIsSidebarOpen(false)}
-          ></div>
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>
         )}
 
-        <Sidebar 
-          user={currentUser} 
-          logout={logout} 
-          isOpen={isSidebarOpen} 
-          onClose={() => setIsSidebarOpen(false)} 
-        />
+        <Sidebar user={currentUser} logout={logout} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
         
         <div className="flex-1 flex flex-col min-w-0">
-          <Header 
-            user={currentUser} 
-            onMenuToggle={() => setIsSidebarOpen(!isSidebarOpen)} 
-          />
+          <Header user={currentUser} onMenuToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
           <main className="flex-1 overflow-y-auto p-4 md:p-8">
             {children}
           </main>
@@ -88,6 +81,7 @@ const App: React.FC = () => {
         <Route path="/" element={<AuthenticatedLayout><Dashboard /></AuthenticatedLayout>} />
         <Route path="/apply" element={<AuthenticatedLayout><LeaveApplication /></AuthenticatedLayout>} />
         <Route path="/meetings" element={<AuthenticatedLayout><MeetingSchedule /></AuthenticatedLayout>} />
+        <Route path="/profile" element={<AuthenticatedLayout><Profile /></AuthenticatedLayout>} />
         <Route path="/admin/users" element={<AuthenticatedLayout><AdminUserManagement /></AuthenticatedLayout>} />
         <Route path="/admin/requests" element={<AuthenticatedLayout><AdminRequests /></AuthenticatedLayout>} />
         <Route path="*" element={<Navigate to="/" replace />} />

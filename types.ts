@@ -7,7 +7,7 @@ export type Team = '공채' | '경채' | '특정직' | '공통';
 export interface User {
   id: string;
   email: string;
-  password: string; // 필수 필드로 변경
+  password: string; 
   name: string;
   position: string;
   team: Team; 
@@ -16,6 +16,8 @@ export interface User {
   totalLeave: number;
   usedLeave: number;
   joinDate: string;
+  phone?: string;         // 전화번호 추가
+  profileImage?: string;  // 프로필 이미지 (Base64) 추가
 }
 
 export interface LeaveRequest {

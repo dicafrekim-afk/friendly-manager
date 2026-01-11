@@ -25,6 +25,13 @@ const INITIAL_ADMIN: User = {
   joinDate: new Date().toISOString().split('T')[0]
 };
 
+// 날짜 차이 계산 유틸리티
+const calculateDiffDays = (startDate: string, endDate: string): number => {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  return Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
+};
+
 export const dataService = {
   // --- User Operations ---
   async getUsers(): Promise<User[]> {
@@ -168,7 +175,6 @@ export const dataService = {
       const { error } = await supabase.from('leave_requests').insert([finalRequest]);
       if (error) {
         console.error('❌ Supabase insert error detailed:', error);
-        // PGRST204는 컬럼 미매칭 에러
         if (error.code === 'PGRST204') {
           throw new Error(`데이터베이스 구조(userTeam 컬럼)가 업데이트되지 않았습니다. 관리자에게 문의해 주세요. (${error.message})`);
         }
@@ -178,6 +184,12 @@ export const dataService = {
     
     const reqs = await this.getRequests();
     localStorage.setItem('friendly_requests', JSON.stringify([...reqs.filter(r => r.id !== request.id), finalRequest]));
+
+    // 자동 승인된 경우(최고관리자 등) 즉시 연차 차감 로직 수행
+    if (initialStatus === 'APPROVED' && request.type === 'VACATION') {
+      const diffDays = calculateDiffDays(request.startDate, request.endDate);
+      await this.deductLeave(request.userId, diffDays);
+    }
   },
 
   async updateRequestStatus(requestId: string, status: Status): Promise<void> {
@@ -190,10 +202,9 @@ export const dataService = {
     const updatedReqs = reqs.map(r => r.id === requestId ? { ...r, status } : r);
     localStorage.setItem('friendly_requests', JSON.stringify(updatedReqs));
 
+    // 관리자가 수동으로 승인할 때 차감 로직
     if (status === 'APPROVED' && targetReq && targetReq.type === 'VACATION') {
-      const start = new Date(targetReq.startDate);
-      const end = new Date(targetReq.endDate);
-      const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
+      const diffDays = calculateDiffDays(targetReq.startDate, targetReq.endDate);
       await this.deductLeave(targetReq.userId, diffDays);
     }
   },
