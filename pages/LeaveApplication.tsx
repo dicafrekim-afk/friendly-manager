@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { LeaveType, LeaveRequest, User } from '../types';
 import { LEAVE_TYPE_LABELS } from '../constants';
 import { dataService } from '../services/dataService';
@@ -15,6 +15,16 @@ const LeaveApplication: React.FC = () => {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
+  // 날짜 차이 계산 (편의 기능)
+  const diffDays = useMemo(() => {
+    if (!startDate || !endDate) return 0;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (start > end) return 0;
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  }, [startDate, endDate]);
+
   const handleAiSuggest = async () => {
     if (!reason) return;
     setIsAiLoading(true);
@@ -29,8 +39,13 @@ const LeaveApplication: React.FC = () => {
       alert('종료일은 시작일보다 빠를 수 없습니다.');
       return;
     }
+    
+    // 잔여 연차 체크 (VACATION인 경우)
+    if (type === 'VACATION' && diffDays > (currentUser.totalLeave - currentUser.usedLeave)) {
+      if (!window.confirm('신청하신 휴가 일수가 잔여 연차보다 많습니다. 계속하시겠습니까?')) return;
+    }
+
     setIsSubmitting(true);
-    // Fixed: Added missing 'userTeam' property to satisfy LeaveRequest interface
     const newRequest: LeaveRequest = {
       id: `req-${Date.now()}`,
       userId: currentUser.id,
@@ -50,71 +65,82 @@ const LeaveApplication: React.FC = () => {
 
   if (submitted) {
     return (
-      <div className="max-w-md mx-auto text-center py-20 px-4">
-        <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
-          <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+      <div className="max-w-md mx-auto text-center py-20 px-6 animate-in zoom-in duration-300">
+        <div className="w-24 h-24 bg-emerald-50 text-emerald-500 rounded-[32px] flex items-center justify-center mx-auto mb-8 shadow-inner">
+          <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
         </div>
-        <h2 className="text-2xl font-black text-slate-900 mb-2">신청 완료!</h2>
-        <p className="text-slate-500 mb-8 text-sm">관리자가 확인 후 승인해 드릴게요.</p>
-        <button onClick={() => setSubmitted(false)} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-lg">확인</button>
+        <h2 className="text-3xl font-black text-slate-900 mb-4">신청 완료!</h2>
+        <p className="text-slate-500 mb-10 text-sm leading-relaxed">작성하신 내용이 성공적으로 제출되었습니다.<br/>관리자의 승인이 완료되면 알림을 드릴게요.</p>
+        <button onClick={() => setSubmitted(false)} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all">확인</button>
       </div>
     );
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 md:space-y-10 pb-10">
-      <div className="px-2">
-        <h1 className="text-2xl md:text-4xl font-black text-slate-900">신청하기</h1>
-        <p className="text-xs md:text-sm text-slate-400 mt-1">휴가 또는 출장을 간편하게 신청하세요.</p>
+    <div className="max-w-2xl mx-auto space-y-8 md:space-y-12 pb-16 px-2 animate-in fade-in duration-500">
+      <div>
+        <h1 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tight">신청하기</h1>
+        <p className="text-sm text-slate-400 mt-2 font-bold">휴가 및 출장 일정을 친절하게 안내해 드립니다.</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white p-6 md:p-10 rounded-3xl shadow-sm border border-slate-100 space-y-8">
-        <div className="space-y-3">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">유형</label>
-          <div className="grid grid-cols-2 gap-2">
+      <form onSubmit={handleSubmit} className="bg-white p-8 md:p-12 rounded-[40px] shadow-sm border border-slate-100 space-y-10">
+        <div className="space-y-4">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">유형 선택</label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {(Object.keys(LEAVE_TYPE_LABELS) as LeaveType[]).map(t => (
               <button 
                 key={t} 
                 type="button" 
                 onClick={() => setType(t)} 
-                className={`py-3 px-4 rounded-xl text-xs font-black transition-all border-2 ${
-                  type === t ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-slate-50 text-slate-400 border-slate-50 hover:bg-white hover:border-slate-100'
+                className={`py-4 px-2 rounded-2xl text-xs font-black transition-all border-2 flex flex-col items-center gap-2 ${
+                  type === t ? 'bg-indigo-600 text-white border-indigo-600 shadow-xl shadow-indigo-100 scale-105' : 'bg-slate-50 text-slate-400 border-slate-50 hover:bg-white hover:border-slate-100'
                 }`}
               >
-                {LEAVE_TYPE_LABELS[t]}
+                <span>{LEAVE_TYPE_LABELS[t]}</span>
               </button>
             ))}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-3">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">시작일</label>
-            <input required type="date" value={startDate} onChange={(e) => {setStartDate(e.target.value); if(!endDate) setEndDate(e.target.value);}} className="w-full px-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-50 focus:bg-white focus:border-indigo-600 outline-none text-sm font-bold" />
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-3">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">시작일</label>
+              <input required type="date" value={startDate} onChange={(e) => {setStartDate(e.target.value); if(!endDate) setEndDate(e.target.value);}} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-2 border-slate-50 focus:bg-white focus:border-indigo-600 outline-none text-sm font-black transition-all" />
+            </div>
+            <div className="space-y-3">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">종료일</label>
+              <input required type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-2 border-slate-50 focus:bg-white focus:border-indigo-600 outline-none text-sm font-black transition-all" />
+            </div>
           </div>
-          <div className="space-y-3">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">종료일</label>
-            <input required type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-slate-50 border-2 border-slate-50 focus:bg-white focus:border-indigo-600 outline-none text-sm font-bold" />
-          </div>
+          
+          {diffDays > 0 && (
+            <div className="p-4 bg-indigo-50 rounded-2xl flex items-center justify-between border border-indigo-100 animate-in slide-in-from-top-2">
+              <span className="text-xs font-black text-indigo-700">신청 기간 요약</span>
+              <span className="text-sm font-black text-indigo-600">총 {diffDays}일</span>
+            </div>
+          )}
         </div>
 
-        <div className="space-y-3">
-          <div className="flex justify-between items-center px-1">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">사유</label>
+        <div className="space-y-4">
+          <div className="flex justify-between items-center px-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">사유 입력</label>
             <button 
               type="button"
               onClick={handleAiSuggest}
               disabled={isAiLoading || !reason}
-              className="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-full text-[9px] font-black hover:bg-indigo-100 transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black hover:bg-indigo-100 transition-all disabled:opacity-50 flex items-center gap-2 border border-indigo-100"
             >
-              {isAiLoading ? 'AI 다듬는 중...' : '✨ AI로 다듬기'}
+              {isAiLoading ? (
+                <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+              ) : '✨ AI 추천 문장'}
             </button>
           </div>
-          <textarea required rows={4} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="간단히 입력 후 AI 버튼을 눌러보세요." className="w-full px-4 py-4 rounded-2xl bg-slate-50 border-2 border-slate-50 focus:bg-white focus:border-indigo-600 outline-none text-sm font-medium resize-none" />
+          <textarea required rows={5} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="신청 사유를 자유롭게 입력해 주세요. (예: 개인 사정으로 인한 휴가)" className="w-full px-6 py-6 rounded-3xl bg-slate-50 border-2 border-slate-50 focus:bg-white focus:border-indigo-600 outline-none text-sm font-bold resize-none transition-all placeholder:text-slate-300" />
         </div>
 
-        <button disabled={isSubmitting} className="w-full py-4 md:py-5 bg-indigo-600 text-white rounded-2xl font-black text-sm md:text-lg shadow-xl shadow-indigo-100 active:scale-95 transition-all disabled:bg-slate-300">
-          {isSubmitting ? '전송 중...' : '신청 제출'}
+        <button disabled={isSubmitting} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black text-lg shadow-2xl shadow-indigo-100 hover:bg-indigo-700 active:scale-[0.98] transition-all disabled:bg-slate-200">
+          {isSubmitting ? '전송 중...' : '제출하기'}
         </button>
       </form>
     </div>

@@ -5,8 +5,8 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 // 최고 관리자(Super Admin) 명단 업데이트
 export const SUPER_ADMIN_EMAILS = [
   'dicafrekim@naver.com',
-  'aldari25@naver.com', // 서지연 님 추가
-  'lankypark@gmail.com'  // 박희수 님 추가
+  'aldari25@naver.com', // 서지연 님
+  'lankypark@gmail.com'  // 박희수(lankypark) 님 최고 관리자 권한 부여
 ];
 
 export const isSuperAdmin = (email: string) => SUPER_ADMIN_EMAILS.includes(email);
