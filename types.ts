@@ -7,9 +7,10 @@ export type Team = '공채' | '경채' | '특정직' | '공통';
 export interface User {
   id: string;
   email: string;
+  password?: string; // 비밀번호 필드 추가
   name: string;
   position: string;
-  team: Team; // 팀 필드 추가
+  team: Team; 
   role: Role;
   status: 'PENDING' | 'APPROVED' | 'REJECTED'; 
   totalLeave: number;
@@ -21,7 +22,7 @@ export interface LeaveRequest {
   id: string;
   userId: string;
   userName: string;
-  userTeam: Team; // 신청 당시의 팀 정보 저장
+  userTeam: Team; 
   type: LeaveType;
   startDate: string;
   endDate: string;

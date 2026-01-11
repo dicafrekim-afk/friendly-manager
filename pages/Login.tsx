@@ -21,13 +21,17 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setIsLoading(true);
     
     try {
-      // ⚠️ 클라우드 DB에 연결되어 있다면 DB에서 사용자 정보를 가져옵니다.
       const users = await dataService.getUsers();
       const user = users.find(u => u.email === email);
 
       if (user) {
-        onLogin(user);
-        navigate('/');
+        // 비밀번호 검증 로직 추가
+        if (user.password === password) {
+          onLogin(user);
+          navigate('/');
+        } else {
+          setError('비밀번호가 일치하지 않습니다.');
+        }
       } else {
         setError('등록되지 않은 이메일입니다. 이메일을 확인하거나 회원가입을 해주세요.');
       }
@@ -106,7 +110,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         </div>
         
         <div className="mt-8 text-center text-xs text-slate-400">
-          <p>관리자 데모: dicafrekim@naver.com</p>
+          <p>관리자 데모: dicafrekim@naver.com (pw: admin1234)</p>
         </div>
       </div>
     </div>

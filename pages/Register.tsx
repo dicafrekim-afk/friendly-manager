@@ -27,10 +27,10 @@ const Register: React.FC = () => {
         return;
       }
 
-      // Fixed: Added required 'team' property to satisfy User interface
       const newUser: User = {
         id: `u-${Date.now()}`,
         email,
+        password, // 비밀번호 저장
         name,
         position: '팀원',
         team: '공통',

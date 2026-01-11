@@ -2,10 +2,11 @@
 import { User, LeaveRequest, Status, Notification, Meeting, Team } from '../types';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
-// 최고 관리자(Super Admin) 명단
+// 최고 관리자(Super Admin) 명단 업데이트
 export const SUPER_ADMIN_EMAILS = [
   'dicafrekim@naver.com',
-  'seo_jiyeon@naver.com' // 서지연 팀장님 추가 (실제 이메일로 수정 가능)
+  'aldari25@naver.com', // 서지연 님 추가
+  'lankypark@gmail.com'  // 박희수 님 추가
 ];
 
 export const isSuperAdmin = (email: string) => SUPER_ADMIN_EMAILS.includes(email);
@@ -13,6 +14,7 @@ export const isSuperAdmin = (email: string) => SUPER_ADMIN_EMAILS.includes(email
 const INITIAL_ADMIN: User = {
   id: 'admin-001',
   email: SUPER_ADMIN_EMAILS[0],
+  password: 'admin1234', // 초기 관리자 비밀번호 설정
   name: '최고관리자',
   position: '최고관리자',
   team: '공통',
