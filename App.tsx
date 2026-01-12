@@ -8,10 +8,11 @@ import LeaveApplication from './pages/LeaveApplication';
 import MeetingSchedule from './pages/MeetingSchedule';
 import AdminUserManagement from './pages/AdminUserManagement';
 import AdminRequests from './pages/AdminRequests';
-import Profile from './pages/Profile'; // 프로필 페이지 추가
+import Profile from './pages/Profile'; 
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import { User } from './types';
+import { dataService } from './services/dataService';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -28,6 +29,19 @@ const App: React.FC = () => {
     window.addEventListener('storage', fetchSession);
     return () => window.removeEventListener('storage', fetchSession);
   }, []);
+
+  // 회의 리마인더 체크 인터벌 (5분마다)
+  useEffect(() => {
+    if (!currentUser) return;
+    
+    const checkReminders = async () => {
+      await dataService.checkMeetingReminders();
+    };
+    
+    checkReminders(); // 초기 실행
+    const interval = setInterval(checkReminders, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [currentUser]);
 
   const login = (user: User) => {
     setCurrentUser(user);

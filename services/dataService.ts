@@ -2,18 +2,17 @@
 import { User, LeaveRequest, Status, Notification, Meeting, Team } from '../types';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
-// 최고 관리자(Super Admin) 명단 업데이트
 export const SUPER_ADMIN_EMAILS = [
   'dicafrekim@naver.com',
-  'aldari25@naver.com', // 서지연 님
-  'lankypark@gmail.com'  // 박희수(lankypark) 님 최고 관리자 권한 부여
+  'aldari25@naver.com',
+  'lankypark@gmail.com'
 ];
 
 export const isSuperAdmin = (email: string) => SUPER_ADMIN_EMAILS.includes(email.toLowerCase().trim());
 
 const INITIAL_ADMIN: User = {
   id: 'admin-001',
-  email: SUPER_ADMIN_EMAILS[0], // dicafrekim@naver.com
+  email: SUPER_ADMIN_EMAILS[0],
   password: 'admin1234', 
   name: '김구현', 
   position: '최고관리자',
@@ -25,7 +24,6 @@ const INITIAL_ADMIN: User = {
   joinDate: new Date().toISOString().split('T')[0]
 };
 
-// 날짜 차이 계산 유틸리티
 const calculateDiffDays = (startDate: string, endDate: string): number => {
   const start = new Date(startDate);
   const end = new Date(endDate);
@@ -33,7 +31,6 @@ const calculateDiffDays = (startDate: string, endDate: string): number => {
 };
 
 export const dataService = {
-  // --- User Operations ---
   async getUsers(): Promise<User[]> {
     if (isSupabaseConfigured) {
       try {
@@ -137,7 +134,6 @@ export const dataService = {
     await this.updateUser(userId, { status });
   },
 
-  // --- Request Operations ---
   async getRequests(): Promise<LeaveRequest[]> {
     if (isSupabaseConfigured) {
       try {
@@ -173,19 +169,12 @@ export const dataService = {
 
     if (isSupabaseConfigured) {
       const { error } = await supabase.from('leave_requests').insert([finalRequest]);
-      if (error) {
-        console.error('❌ Supabase insert error detailed:', error);
-        if (error.code === 'PGRST204') {
-          throw new Error(`데이터베이스 구조(userTeam 컬럼)가 업데이트되지 않았습니다. 관리자에게 문의해 주세요. (${error.message})`);
-        }
-        throw error;
-      }
+      if (error) throw error;
     }
     
     const reqs = await this.getRequests();
     localStorage.setItem('friendly_requests', JSON.stringify([...reqs.filter(r => r.id !== request.id), finalRequest]));
 
-    // 자동 승인된 경우(최고관리자 등) 즉시 연차 차감 로직 수행
     if (initialStatus === 'APPROVED' && request.type === 'VACATION') {
       const diffDays = calculateDiffDays(request.startDate, request.endDate);
       await this.deductLeave(request.userId, diffDays);
@@ -202,7 +191,6 @@ export const dataService = {
     const updatedReqs = reqs.map(r => r.id === requestId ? { ...r, status } : r);
     localStorage.setItem('friendly_requests', JSON.stringify(updatedReqs));
 
-    // 관리자가 수동으로 승인할 때 차감 로직
     if (status === 'APPROVED' && targetReq && targetReq.type === 'VACATION') {
       const diffDays = calculateDiffDays(targetReq.startDate, targetReq.endDate);
       await this.deductLeave(targetReq.userId, diffDays);
@@ -250,6 +238,10 @@ export const dataService = {
   async createNotification(notification: Notification): Promise<void> {
     const localData = localStorage.getItem('friendly_notifications');
     const allNotifs: Notification[] = localData ? JSON.parse(localData) : [];
+    
+    // 중복 생성 방지 (ID 기준)
+    if (allNotifs.some(n => n.id === notification.id)) return;
+
     localStorage.setItem('friendly_notifications', JSON.stringify([notification, ...allNotifs]));
   },
 
@@ -258,5 +250,32 @@ export const dataService = {
     const allNotifs: Notification[] = localData ? JSON.parse(localData) : [];
     const updated = allNotifs.map(n => n.id === notificationId ? { ...n, isRead: true } : n);
     localStorage.setItem('friendly_notifications', JSON.stringify(updated));
+  },
+
+  // 회의 알림 체크 로직
+  async checkMeetingReminders(): Promise<void> {
+    const meetings = await this.getMeetings();
+    const now = new Date();
+    const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
+    const oneHourAndTenLater = new Date(now.getTime() + 70 * 60 * 1000);
+
+    for (const mt of meetings) {
+      const startTime = new Date(mt.startTime);
+      // 회의 시작 1시간 전인 경우 (60분~70분 사이 여유를 둬서 체크 주기에 걸리게 함)
+      if (startTime > oneHourLater && startTime < oneHourAndTenLater) {
+        for (const participantId of mt.participants) {
+          const reminderNotif: Notification = {
+            id: `rem-${mt.id}-${participantId}`, // Unique ID for reminder
+            userId: participantId,
+            title: '회의 리마인더',
+            message: `1시간 후에 [${mt.title}] 회의가 시작됩니다.`,
+            type: 'WARNING',
+            createdAt: new Date().toISOString(),
+            isRead: false
+          };
+          await this.createNotification(reminderNotif);
+        }
+      }
+    }
   }
 };
