@@ -117,9 +117,9 @@ const LadderGame: React.FC = () => {
       }
     }
 
-    // SVG 좌표로 변환 (0~100 스케일을 픽셀 혹은 퍼센트로)
+    // SVG viewBox(0 0 100 100) 좌표계에 맞게 변환 (단위 % 제거)
     const spacing = 100 / (ladderData.verticalLines + 1);
-    return pathPoints.map(p => `${(p[0] + 1) * spacing},${p[1]}%`).join(" ");
+    return pathPoints.map(p => `${(p[0] + 1) * spacing},${p[1]}`).join(" ");
   };
 
   const handleUserClick = (idx: number) => {
@@ -241,43 +241,43 @@ const LadderGame: React.FC = () => {
               })}
             </div>
 
-            {/* 사다리 메인 보드 */}
+            {/* 사다리 메인 보드 (viewBox 적용) */}
             <div className="flex-1 relative mt-16 mb-20">
-              <svg className="w-full h-full min-h-[400px]" preserveAspectRatio="none">
-                {/* 세로줄 */}
+              <svg className="w-full h-full min-h-[400px]" viewBox="0 0 100 100" preserveAspectRatio="none">
+                {/* 세로줄 (숫자 좌표 사용) */}
                 {Array.from({ length: ladderData?.verticalLines || 0 }).map((_, i) => {
                   const spacing = 100 / ((ladderData?.verticalLines || 0) + 1);
                   return (
                     <line 
                       key={`v-${i}`} 
-                      x1={`${(i + 1) * spacing}%`} y1="0" 
-                      x2={`${(i + 1) * spacing}%`} y2="100%" 
-                      stroke="#F1F5F9" strokeWidth="4" strokeLinecap="round" 
+                      x1={(i + 1) * spacing} y1="0" 
+                      x2={(i + 1) * spacing} y2="100" 
+                      stroke="#F1F5F9" strokeWidth="1" strokeLinecap="round" 
                     />
                   );
                 })}
 
-                {/* 가로줄 (브릿지) */}
+                {/* 가로줄 (브릿지) (숫자 좌표 사용) */}
                 {ladderData?.bridges.map((b, i) => {
                   const spacing = 100 / (ladderData.verticalLines + 1);
                   return (
                     <line 
                       key={`b-${i}`} 
-                      x1={`${(b.fromX + 1) * spacing}%`} y1={`${b.fromY}%`} 
-                      x2={`${(b.toX + 1) * spacing}%`} y2={`${b.toY}%`} 
-                      stroke="#F1F5F9" strokeWidth="4" strokeLinecap="round" 
+                      x1={(b.fromX + 1) * spacing} y1={b.fromY} 
+                      x2={(b.toX + 1) * spacing} y2={b.toY} 
+                      stroke="#F1F5F9" strokeWidth="1" strokeLinecap="round" 
                     />
                   );
                 })}
 
-                {/* 활성화된 경로 애니메이션 */}
+                {/* 활성화된 경로 애니메이션 (단위 제거) */}
                 {activePaths.map((startIdx) => (
                   <polyline 
                     key={`path-${startIdx}`}
                     points={getPath(startIdx)}
                     fill="none"
                     stroke="#4F46E5"
-                    strokeWidth="6"
+                    strokeWidth="1.5"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     className="path-animation"
@@ -317,7 +317,7 @@ const LadderGame: React.FC = () => {
               }
             }
             .path-animation {
-              filter: drop-shadow(0 4px 6px rgba(79, 70, 229, 0.2));
+              filter: drop-shadow(0 0.5px 1px rgba(79, 70, 229, 0.2));
             }
           `}</style>
 
