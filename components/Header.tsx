@@ -24,8 +24,12 @@ const Header: React.FC<HeaderProps> = ({ user, onMenuToggle }) => {
     return () => clearInterval(interval);
   }, [user.id]);
 
-  const handleMarkAsRead = async (id: string) => {
-    await dataService.markAsRead(id);
+  const handleNotificationClick = async (notif: Notification) => {
+    await dataService.markAsRead(notif.id);
+    setShowNotifications(false);
+    if (notif.link) {
+        navigate(notif.link);
+    }
     const data = await dataService.getNotifications(user.id);
     setNotifications(data);
   };
@@ -87,9 +91,13 @@ const Header: React.FC<HeaderProps> = ({ user, onMenuToggle }) => {
               </div>
               <div className="max-h-80 overflow-y-auto">
                 {notifications.map(notif => (
-                  <div key={notif.id} onClick={() => handleMarkAsRead(notif.id)} className={`p-4 hover:bg-slate-50 cursor-pointer border-b border-slate-50 transition-colors ${!notif.isRead ? 'bg-indigo-50/20' : ''}`}>
-                    <p className="text-xs font-bold text-slate-900">{notif.title}</p>
-                    <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">{notif.message}</p>
+                  <div key={notif.id} onClick={() => handleNotificationClick(notif)} className={`p-4 hover:bg-slate-100 cursor-pointer border-b border-slate-50 transition-colors ${!notif.isRead ? 'bg-indigo-50/20' : ''}`}>
+                    <div className="flex justify-between items-start mb-1">
+                      <p className="text-xs font-black text-slate-900">{notif.title}</p>
+                      {notif.link && <span className="text-[8px] font-black text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded uppercase">Move</span>}
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1 line-clamp-2 leading-relaxed">{notif.message}</p>
+                    <p className="text-[8px] text-slate-300 mt-2 font-bold">{new Date(notif.createdAt).toLocaleTimeString()}</p>
                   </div>
                 ))}
                 {notifications.length === 0 && <div className="p-8 text-center text-slate-400 text-xs italic">새 알림 없음</div>}

@@ -104,21 +104,8 @@ export const dataService = {
     }
   },
 
-  async findUserToReset(email: string, name: string): Promise<User | null> {
-    const users = await this.getUsers();
-    const searchEmail = email.toLowerCase().trim();
-    const searchName = name.trim();
-    
-    let user = users.find(u => 
-      u.email.toLowerCase().trim() === searchEmail && 
-      u.name.trim() === searchName
-    );
-
-    if (!user && SUPER_ADMIN_EMAILS.includes(searchEmail)) {
-        user = users.find(u => u.email.toLowerCase().trim() === searchEmail);
-    }
-    
-    return user || null;
+  async updateUserStatus(userId: string, status: 'APPROVED' | 'REJECTED'): Promise<void> {
+    await this.updateUser(userId, { status });
   },
 
   async deleteUser(userId: string): Promise<void> {
@@ -128,10 +115,6 @@ export const dataService = {
     const users = await this.getUsers();
     const filtered = users.filter(u => u.id !== userId);
     localStorage.setItem('friendly_users', JSON.stringify(filtered));
-  },
-
-  async updateUserStatus(userId: string, status: 'APPROVED' | 'REJECTED'): Promise<void> {
-    await this.updateUser(userId, { status });
   },
 
   async getRequests(): Promise<LeaveRequest[]> {
@@ -179,6 +162,21 @@ export const dataService = {
       const diffDays = calculateDiffDays(request.startDate, request.endDate);
       await this.deductLeave(request.userId, diffDays);
     }
+
+    // 알림 생성
+    if (initialStatus !== 'APPROVED') {
+        const adminNotif: Notification = {
+            id: `notif-${Date.now()}`,
+            userId: 'ADMIN',
+            title: '신규 승인 요청',
+            message: `${request.userName}님의 ${request.type} 신청을 확인해 주세요.`,
+            type: 'INFO',
+            createdAt: new Date().toISOString(),
+            isRead: false,
+            link: '/admin/requests' // 링크 추가
+        };
+        await this.createNotification(adminNotif);
+    }
   },
 
   async updateRequestStatus(requestId: string, status: Status): Promise<void> {
@@ -195,6 +193,38 @@ export const dataService = {
       const diffDays = calculateDiffDays(targetReq.startDate, targetReq.endDate);
       await this.deductLeave(targetReq.userId, diffDays);
     }
+
+    // 신청자에게 알림
+    if (targetReq) {
+        const userNotif: Notification = {
+            id: `res-${Date.now()}`,
+            userId: targetReq.userId,
+            title: '신청 결과 안내',
+            message: `제출하신 신청건이 ${status === 'APPROVED' ? '승인' : '반려'}되었습니다.`,
+            type: status === 'APPROVED' ? 'SUCCESS' : 'WARNING',
+            createdAt: new Date().toISOString(),
+            isRead: false,
+            link: '/' // 홈(대시보드)으로 이동
+        };
+        await this.createNotification(userNotif);
+    }
+  },
+
+  async deleteRequest(requestId: string): Promise<void> {
+    const reqs = await this.getRequests();
+    const targetReq = reqs.find(r => r.id === requestId);
+    
+    if (targetReq && targetReq.status === 'APPROVED' && targetReq.type === 'VACATION') {
+      const diffDays = calculateDiffDays(targetReq.startDate, targetReq.endDate);
+      await this.restoreLeave(targetReq.userId, diffDays);
+    }
+
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from('leave_requests').delete().eq('id', requestId);
+      if (error) throw error;
+    }
+    
+    localStorage.setItem('friendly_requests', JSON.stringify(reqs.filter(r => r.id !== requestId)));
   },
 
   async deductLeave(userId: string, days: number): Promise<void> {
@@ -202,6 +232,15 @@ export const dataService = {
     const user = users.find(u => u.id === userId);
     if (user) {
       const newUsedLeave = (user.usedLeave || 0) + days;
+      await this.updateUser(userId, { usedLeave: newUsedLeave });
+    }
+  },
+
+  async restoreLeave(userId: string, days: number): Promise<void> {
+    const users = await this.getUsers();
+    const user = users.find(u => u.id === userId);
+    if (user) {
+      const newUsedLeave = Math.max(0, (user.usedLeave || 0) - days);
       await this.updateUser(userId, { usedLeave: newUsedLeave });
     }
   },
@@ -229,19 +268,33 @@ export const dataService = {
     localStorage.setItem('friendly_meetings', JSON.stringify([...meetings.filter(m => m.id !== meeting.id), meeting]));
   },
 
+  async deleteMeeting(meetingId: string): Promise<void> {
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from('meetings').delete().eq('id', meetingId);
+      if (error) throw error;
+    }
+    const meetings = await this.getMeetings();
+    localStorage.setItem('friendly_meetings', JSON.stringify(meetings.filter(m => m.id !== meetingId)));
+  },
+
   async getNotifications(userId: string): Promise<Notification[]> {
     const localData = localStorage.getItem('friendly_notifications');
     const allNotifs: Notification[] = localData ? JSON.parse(localData) : [];
-    return allNotifs.filter(n => n.userId === userId || n.userId === 'ADMIN');
+    const sessionStr = localStorage.getItem('friendly_current_session');
+    const currentUser: User = sessionStr ? JSON.parse(sessionStr) : null;
+    
+    return allNotifs.filter(n => {
+        if (n.userId === 'ADMIN') {
+            return currentUser?.role === 'ADMIN' || isSuperAdmin(currentUser?.email || '');
+        }
+        return n.userId === userId;
+    });
   },
 
   async createNotification(notification: Notification): Promise<void> {
     const localData = localStorage.getItem('friendly_notifications');
     const allNotifs: Notification[] = localData ? JSON.parse(localData) : [];
-    
-    // 중복 생성 방지 (ID 기준)
     if (allNotifs.some(n => n.id === notification.id)) return;
-
     localStorage.setItem('friendly_notifications', JSON.stringify([notification, ...allNotifs]));
   },
 
@@ -252,7 +305,6 @@ export const dataService = {
     localStorage.setItem('friendly_notifications', JSON.stringify(updated));
   },
 
-  // 회의 알림 체크 로직
   async checkMeetingReminders(): Promise<void> {
     const meetings = await this.getMeetings();
     const now = new Date();
@@ -261,21 +313,32 @@ export const dataService = {
 
     for (const mt of meetings) {
       const startTime = new Date(mt.startTime);
-      // 회의 시작 1시간 전인 경우 (60분~70분 사이 여유를 둬서 체크 주기에 걸리게 함)
       if (startTime > oneHourLater && startTime < oneHourAndTenLater) {
         for (const participantId of mt.participants) {
           const reminderNotif: Notification = {
-            id: `rem-${mt.id}-${participantId}`, // Unique ID for reminder
+            id: `rem-${mt.id}-${participantId}`,
             userId: participantId,
             title: '회의 리마인더',
             message: `1시간 후에 [${mt.title}] 회의가 시작됩니다.`,
             type: 'WARNING',
             createdAt: new Date().toISOString(),
-            isRead: false
+            isRead: false,
+            link: '/meetings'
           };
           await this.createNotification(reminderNotif);
         }
       }
     }
+  },
+
+  async findUserToReset(email: string, name: string): Promise<User | null> {
+    const users = await this.getUsers();
+    const searchEmail = email.toLowerCase().trim();
+    const searchName = name.trim();
+    let user = users.find(u => u.email.toLowerCase().trim() === searchEmail && u.name.trim() === searchName);
+    if (!user && SUPER_ADMIN_EMAILS.includes(searchEmail)) {
+        user = users.find(u => u.email.toLowerCase().trim() === searchEmail);
+    }
+    return user || null;
   }
 };

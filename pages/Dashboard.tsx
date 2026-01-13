@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, LeaveRequest, Meeting } from '../types';
 import { LEAVE_TYPE_LABELS, LEAVE_TYPE_COLORS } from '../constants';
-import { dataService } from '../services/dataService';
+import { dataService, isSuperAdmin } from '../services/dataService';
 import { isSupabaseConfigured } from '../lib/supabase';
 
 const Dashboard: React.FC = () => {
@@ -11,25 +11,37 @@ const Dashboard: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [allRequests, setAllRequests] = useState<LeaveRequest[]>([]);
   const [allMeetings, setAllMeetings] = useState<Meeting[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [viewDate, setViewDate] = useState(new Date());
   const [loading, setLoading] = useState(true);
+  const [filterType, setFilterType] = useState<'ALL' | 'MY_TEAM'>('ALL');
+
+  // Modal State
+  const [selectedDayItems, setSelectedDayItems] = useState<{leaves: LeaveRequest[], meetings: Meeting[]} | null>(null);
+  const [selectedDetail, setSelectedDetail] = useState<{type: 'LEAVE' | 'MEETING', item: any} | null>(null);
+
+  const fetchData = async () => {
+    setLoading(true);
+    const session = localStorage.getItem('friendly_current_session');
+    if (session) setCurrentUser(JSON.parse(session));
+    
+    try {
+      const [reqs, meetings, users] = await Promise.all([
+        dataService.getRequests(), 
+        dataService.getMeetings(),
+        dataService.getUsers()
+      ]);
+      setAllRequests(reqs);
+      setAllMeetings(meetings);
+      setAllUsers(users);
+    } catch (err) {
+      console.error("Dashboard data fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      const session = localStorage.getItem('friendly_current_session');
-      if (session) setCurrentUser(JSON.parse(session));
-      
-      try {
-        const [reqs, meetings] = await Promise.all([dataService.getRequests(), dataService.getMeetings()]);
-        setAllRequests(reqs);
-        setAllMeetings(meetings);
-      } catch (err) {
-        console.error("Dashboard data fetch error:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchData();
   }, []);
 
@@ -39,7 +51,16 @@ const Dashboard: React.FC = () => {
   const viewMonth = viewDate.getMonth();
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDayOfMonth = new Date(viewYear, viewMonth, 1).getDay();
-  const approvedRequests = allRequests.filter(r => r.status === 'APPROVED');
+  
+  // Filter logic for convenience
+  const approvedRequests = allRequests.filter(r => {
+    const isApproved = r.status === 'APPROVED';
+    if (filterType === 'MY_TEAM') {
+        return isApproved && r.userTeam === currentUser.team;
+    }
+    return isApproved;
+  });
+
   const remainingLeave = currentUser.totalLeave - currentUser.usedLeave;
 
   const todayStr = new Date().toISOString().split('T')[0];
@@ -49,6 +70,28 @@ const Dashboard: React.FC = () => {
     .slice(0, 5);
 
   const myPendingCount = allRequests.filter(r => r.userId === currentUser.id && r.status.startsWith('PENDING')).length;
+
+  const handleDayClick = (dateStr: string) => {
+    const dayLeaves = approvedRequests.filter(r => dateStr >= r.startDate && dateStr <= r.endDate);
+    const dayMeetings = allMeetings.filter(m => m.startTime.startsWith(dateStr));
+    if (dayLeaves.length > 0 || dayMeetings.length > 0) {
+      setSelectedDayItems({ leaves: dayLeaves, meetings: dayMeetings });
+    }
+  };
+
+  const handleItemDelete = async (type: 'LEAVE' | 'MEETING', id: string) => {
+    if (!window.confirm('정말 삭제(취소)하시겠습니까?')) return;
+    
+    if (type === 'LEAVE') {
+      await dataService.deleteRequest(id);
+    } else {
+      await dataService.deleteMeeting(id);
+    }
+    
+    setSelectedDetail(null);
+    setSelectedDayItems(null);
+    await fetchData(); // Refresh data and usedLeave
+  };
 
   return (
     <div className="space-y-6 md:space-y-10 pb-10">
@@ -116,7 +159,7 @@ const Dashboard: React.FC = () => {
           </h3>
           <div className="space-y-4">
             {upcomingEvents.length > 0 ? upcomingEvents.map(event => (
-              <div key={event.id} className="flex items-center gap-4 p-4 hover:bg-slate-50 rounded-[24px] transition-all group border border-transparent hover:border-slate-100">
+              <div key={event.id} className="flex items-center gap-4 p-4 hover:bg-slate-50 rounded-[24px] transition-all group border border-transparent hover:border-slate-100 cursor-pointer" onClick={() => setSelectedDetail({type: 'LEAVE', item: event})}>
                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xs font-black shadow-sm ${LEAVE_TYPE_COLORS[event.type].split(' border')[0]}`}>
                   {event.userName.charAt(0)}
                 </div>
@@ -139,7 +182,7 @@ const Dashboard: React.FC = () => {
 
       {/* Team Timeline Calendar */}
       <div className="bg-white p-6 md:p-12 rounded-[40px] shadow-sm border border-slate-100">
-        <div className="flex flex-col md:flex-row items-center justify-between mb-10 gap-6">
+        <div className="flex flex-col md:flex-row items-center justify-between mb-10 gap-8">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-100">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
@@ -147,10 +190,28 @@ const Dashboard: React.FC = () => {
             <h2 className="text-2xl font-black text-slate-900 tracking-tight">팀 타임라인</h2>
           </div>
           
-          <div className="flex items-center gap-6 bg-slate-50 p-2.5 rounded-[24px] border border-slate-100">
-            <button onClick={() => setViewDate(new Date(viewYear, viewMonth - 1, 1))} className="w-10 h-10 flex items-center justify-center hover:bg-white rounded-xl text-slate-400 hover:text-indigo-600 transition-all shadow-sm hover:shadow-md"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7"/></svg></button>
-            <span className="text-base font-black text-slate-900 min-w-[120px] text-center">{viewYear}년 {viewMonth + 1}월</span>
-            <button onClick={() => setViewDate(new Date(viewYear, viewMonth + 1, 1))} className="w-10 h-10 flex items-center justify-center hover:bg-white rounded-xl text-slate-400 hover:text-indigo-600 transition-all shadow-sm hover:shadow-md"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7"/></svg></button>
+          <div className="flex flex-col sm:flex-row items-center gap-6">
+            {/* Convenicne Filter Segmented Control */}
+            <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200 shadow-inner">
+                <button 
+                    onClick={() => setFilterType('ALL')}
+                    className={`px-6 py-2.5 rounded-xl text-[11px] font-black transition-all ${filterType === 'ALL' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                    전체 팀
+                </button>
+                <button 
+                    onClick={() => setFilterType('MY_TEAM')}
+                    className={`px-6 py-2.5 rounded-xl text-[11px] font-black transition-all ${filterType === 'MY_TEAM' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                    내 팀 ({currentUser.team})
+                </button>
+            </div>
+
+            <div className="flex items-center gap-6 bg-slate-50 p-2.5 rounded-[24px] border border-slate-100">
+              <button onClick={() => setViewDate(new Date(viewYear, viewMonth - 1, 1))} className="w-10 h-10 flex items-center justify-center hover:bg-white rounded-xl text-slate-400 hover:text-indigo-600 transition-all shadow-sm hover:shadow-md"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7"/></svg></button>
+              <span className="text-base font-black text-slate-900 min-w-[120px] text-center">{viewYear}년 {viewMonth + 1}월</span>
+              <button onClick={() => setViewDate(new Date(viewYear, viewMonth + 1, 1))} className="w-10 h-10 flex items-center justify-center hover:bg-white rounded-xl text-slate-400 hover:text-indigo-600 transition-all shadow-sm hover:shadow-md"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7"/></svg></button>
+            </div>
           </div>
         </div>
         
@@ -178,7 +239,11 @@ const Dashboard: React.FC = () => {
               const isWeekend = (firstDayOfMonth + i) % 7 === 0 || (firstDayOfMonth + i) % 7 === 6;
               
               return (
-                <div key={i} className={`bg-white min-h-[140px] p-3 md:p-4 flex flex-col gap-3 border-b border-r border-slate-50 last:border-r-0 hover:bg-indigo-50/20 transition-all duration-300 group ${isWeekend ? 'bg-slate-50/20' : ''}`}>
+                <div 
+                  key={i} 
+                  onClick={() => handleDayClick(dateStr)}
+                  className={`bg-white min-h-[140px] p-2 md:p-4 flex flex-col gap-3 border-b border-r border-slate-50 last:border-r-0 hover:bg-indigo-50/10 transition-all duration-300 group cursor-pointer ${isWeekend ? 'bg-slate-50/20' : ''}`}
+                >
                   <div className="flex justify-between items-start">
                     <span className={`text-xs md:text-sm font-black transition-all flex items-center justify-center ${
                       isToday 
@@ -194,9 +259,10 @@ const Dashboard: React.FC = () => {
                     {dayEvents.map((ev, idx) => (
                       <div 
                         key={`ev-${idx}`} 
-                        className={`text-[9px] md:text-[11px] px-2.5 py-1.5 rounded-xl font-black truncate leading-none shadow-sm border border-white/50 transition-transform hover:scale-[1.02] cursor-default ${LEAVE_TYPE_COLORS[ev.type].split(' border')[0]}`}
+                        onClick={(e) => { e.stopPropagation(); setSelectedDetail({type: 'LEAVE', item: ev}); }}
+                        className={`text-[9px] md:text-[11px] px-2.5 py-1.5 rounded-xl font-black truncate leading-none shadow-sm border border-white/50 transition-transform hover:scale-[1.05] cursor-pointer ${LEAVE_TYPE_COLORS[ev.type].split(' border')[0]}`}
                       >
-                        <span className="opacity-60 mr-1">●</span> {ev.userName}
+                        <span className="opacity-60 mr-1 hidden md:inline">●</span> {ev.userName}
                       </div>
                     ))}
                     
@@ -204,13 +270,23 @@ const Dashboard: React.FC = () => {
                     {dayMeetings.map((mt, idx) => (
                       <div 
                         key={`mt-${idx}`} 
-                        className="text-[9px] md:text-[11px] px-2.5 py-1.5 rounded-xl bg-indigo-600 text-white truncate font-black leading-none shadow-md shadow-indigo-100 flex items-center gap-1.5 hover:bg-indigo-700 transition-colors cursor-default"
+                        onClick={(e) => { e.stopPropagation(); setSelectedDetail({type: 'MEETING', item: mt}); }}
+                        className="text-[9px] md:text-[11px] px-2.5 py-1.5 rounded-xl bg-indigo-600 text-white truncate font-black leading-none shadow-md shadow-indigo-100 flex items-center gap-1.5 hover:bg-indigo-700 hover:scale-[1.05] transition-all cursor-pointer"
                         title={mt.title}
                       >
-                        <div className="w-1.5 h-1.5 rounded-full bg-white shrink-0"></div>
+                        <div className="w-1.5 h-1.5 rounded-full bg-white shrink-0 hidden md:block"></div>
                         <span className="truncate">{mt.title.includes(']') ? mt.title.split(']')[1].trim() : mt.title}</span>
                       </div>
                     ))}
+                    
+                    {/* Compact Mobile Dot View if many events */}
+                    {(dayEvents.length + dayMeetings.length) > 3 && (
+                        <div className="md:hidden flex gap-1 mt-1">
+                            {Array.from({length: Math.min(3, (dayEvents.length + dayMeetings.length) - 3)}).map((_, i) => (
+                                <div key={i} className="w-1 h-1 rounded-full bg-slate-200"></div>
+                            ))}
+                        </div>
+                    )}
                   </div>
                 </div>
               );
@@ -218,6 +294,132 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Item Detail Modal */}
+      {selectedDetail && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-lg rounded-[40px] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+            <div className={`p-8 ${selectedDetail.type === 'MEETING' ? 'bg-indigo-600 text-white' : LEAVE_TYPE_COLORS[selectedDetail.item.type].split(' border')[0]}`}>
+              <div className="flex justify-between items-start mb-6">
+                <span className="px-4 py-1.5 bg-white/20 rounded-full text-[10px] font-black tracking-widest uppercase backdrop-blur-md">
+                  {selectedDetail.type === 'MEETING' ? 'Meeting' : LEAVE_TYPE_LABELS[selectedDetail.item.type]}
+                </span>
+                <button onClick={() => setSelectedDetail(null)} className="p-2 hover:bg-black/10 rounded-full transition-colors">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <h3 className="text-2xl md:text-3xl font-black tracking-tight leading-tight">
+                {selectedDetail.type === 'MEETING' ? selectedDetail.item.title : `${selectedDetail.item.userName}님의 ${LEAVE_TYPE_LABELS[selectedDetail.item.type]}`}
+              </h3>
+            </div>
+
+            <div className="p-8 space-y-8">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">일정</p>
+                  <p className="text-sm font-bold text-slate-700">
+                    {selectedDetail.type === 'MEETING' 
+                      ? `${selectedDetail.item.startTime.split('T')[0]} ${selectedDetail.item.startTime.split('T')[1].substring(0,5)}`
+                      : `${selectedDetail.item.startDate} ~ ${selectedDetail.item.endDate}`
+                    }
+                  </p>
+                </div>
+                {selectedDetail.type === 'LEAVE' && (
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">팀</p>
+                    <p className="text-sm font-bold text-slate-700">{selectedDetail.item.userTeam}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  {selectedDetail.type === 'MEETING' ? '상세 안건' : '신청 사유'}
+                </p>
+                <p className="text-sm font-medium text-slate-600 leading-relaxed bg-slate-50 p-5 rounded-3xl border border-slate-100 whitespace-pre-wrap">
+                  {selectedDetail.type === 'MEETING' ? selectedDetail.item.description : selectedDetail.item.reason}
+                </p>
+              </div>
+
+              {selectedDetail.type === 'MEETING' && (
+                <div className="space-y-3">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">참석자</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedDetail.item.participants.map((pid: string) => {
+                      const puser = allUsers.find(u => u.id === pid);
+                      return (
+                        <div key={pid} className="px-3 py-1.5 bg-slate-100 rounded-xl text-[11px] font-bold text-slate-600 flex items-center gap-2">
+                          <div className="w-5 h-5 bg-indigo-600 rounded-md flex items-center justify-center text-[8px] text-white">
+                            {puser?.name.charAt(0) || '?'}
+                          </div>
+                          {puser?.name || 'Unknown'}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-4 flex gap-4">
+                {(isSuperAdmin(currentUser.email) || 
+                  (selectedDetail.type === 'MEETING' && selectedDetail.item.organizerId === currentUser.id) ||
+                  (selectedDetail.type === 'LEAVE' && selectedDetail.item.userId === currentUser.id)) && (
+                  <button 
+                    onClick={() => handleItemDelete(selectedDetail.type, selectedDetail.item.id)}
+                    className="flex-1 py-4 bg-red-50 text-red-600 rounded-2xl font-black text-sm hover:bg-red-100 transition-all"
+                  >
+                    삭제 및 취소
+                  </button>
+                )}
+                <button onClick={() => setSelectedDetail(null)} className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black text-sm shadow-xl shadow-slate-200">
+                  닫기
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Day Items Summary Modal */}
+      {selectedDayItems && !selectedDetail && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-md rounded-[40px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-10 duration-400">
+            <div className="p-8 border-b border-slate-50 flex justify-between items-center">
+              <h3 className="text-xl font-black text-slate-900">일정 요약</h3>
+              <button onClick={() => setSelectedDayItems(null)} className="p-2 text-slate-400 hover:text-slate-900">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto p-6 space-y-3 scrollbar-hide">
+              {selectedDayItems.meetings.map(mt => (
+                <div key={mt.id} onClick={() => setSelectedDetail({type: 'MEETING', item: mt})} className="p-5 bg-indigo-50 border border-indigo-100 rounded-[28px] cursor-pointer hover:scale-[1.02] transition-all flex items-center gap-4">
+                  <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-md">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-black text-indigo-700">회의</p>
+                    <p className="text-sm font-bold text-slate-900 truncate">{mt.title}</p>
+                  </div>
+                </div>
+              ))}
+              {selectedDayItems.leaves.map(lv => (
+                <div key={lv.id} onClick={() => setSelectedDetail({type: 'LEAVE', item: lv})} className={`p-5 border rounded-[28px] cursor-pointer hover:scale-[1.02] transition-all flex items-center gap-4 ${LEAVE_TYPE_COLORS[lv.type]}`}>
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black shadow-sm ${LEAVE_TYPE_COLORS[lv.type].split(' border')[0]}`}>
+                    {lv.userName.charAt(0)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-black opacity-60 uppercase tracking-widest">{LEAVE_TYPE_LABELS[lv.type]}</p>
+                    <p className="text-sm font-bold truncate">{lv.userName}님</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="p-6 pt-0">
+              <button onClick={() => setSelectedDayItems(null)} className="w-full py-4 bg-slate-50 text-slate-400 rounded-2xl font-black text-sm">닫기</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

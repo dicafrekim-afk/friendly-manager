@@ -52,4 +52,5 @@ export interface Notification {
   type: 'INFO' | 'WARNING' | 'SUCCESS';
   createdAt: string;
   isRead: boolean;
+  link?: string; // 이동할 경로 추가
 }
