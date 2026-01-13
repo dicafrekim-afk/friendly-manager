@@ -6,6 +6,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import LeaveApplication from './pages/LeaveApplication';
 import MeetingSchedule from './pages/MeetingSchedule';
+import LadderGame from './pages/LadderGame';
 import AdminUserManagement from './pages/AdminUserManagement';
 import AdminRequests from './pages/AdminRequests';
 import Profile from './pages/Profile'; 
@@ -30,15 +31,12 @@ const App: React.FC = () => {
     return () => window.removeEventListener('storage', fetchSession);
   }, []);
 
-  // 회의 리마인더 체크 인터벌 (5분마다)
   useEffect(() => {
     if (!currentUser) return;
-    
     const checkReminders = async () => {
       await dataService.checkMeetingReminders();
     };
-    
-    checkReminders(); // 초기 실행
+    checkReminders();
     const interval = setInterval(checkReminders, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [currentUser]);
@@ -95,6 +93,7 @@ const App: React.FC = () => {
         <Route path="/" element={<AuthenticatedLayout><Dashboard /></AuthenticatedLayout>} />
         <Route path="/apply" element={<AuthenticatedLayout><LeaveApplication /></AuthenticatedLayout>} />
         <Route path="/meetings" element={<AuthenticatedLayout><MeetingSchedule /></AuthenticatedLayout>} />
+        <Route path="/ladder" element={<AuthenticatedLayout><LadderGame /></AuthenticatedLayout>} />
         <Route path="/profile" element={<AuthenticatedLayout><Profile /></AuthenticatedLayout>} />
         <Route path="/admin/users" element={<AuthenticatedLayout><AdminUserManagement /></AuthenticatedLayout>} />
         <Route path="/admin/requests" element={<AuthenticatedLayout><AdminRequests /></AuthenticatedLayout>} />
