@@ -6,7 +6,6 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import LeaveApplication from './pages/LeaveApplication';
 import MeetingSchedule from './pages/MeetingSchedule';
-import LadderGame from './pages/LadderGame';
 import AdminUserManagement from './pages/AdminUserManagement';
 import AdminRequests from './pages/AdminRequests';
 import Profile from './pages/Profile'; 
@@ -93,7 +92,6 @@ const App: React.FC = () => {
         <Route path="/" element={<AuthenticatedLayout><Dashboard /></AuthenticatedLayout>} />
         <Route path="/apply" element={<AuthenticatedLayout><LeaveApplication /></AuthenticatedLayout>} />
         <Route path="/meetings" element={<AuthenticatedLayout><MeetingSchedule /></AuthenticatedLayout>} />
-        <Route path="/ladder" element={<AuthenticatedLayout><LadderGame /></AuthenticatedLayout>} />
         <Route path="/profile" element={<AuthenticatedLayout><Profile /></AuthenticatedLayout>} />
         <Route path="/admin/users" element={<AuthenticatedLayout><AdminUserManagement /></AuthenticatedLayout>} />
         <Route path="/admin/requests" element={<AuthenticatedLayout><AdminRequests /></AuthenticatedLayout>} />
