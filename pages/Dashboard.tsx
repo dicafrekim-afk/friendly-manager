@@ -72,20 +72,16 @@ const Dashboard: React.FC = () => {
   const handleDayClick = (dateStr: string) => {
     const dayLeaves = approvedRequests.filter(r => dateStr >= r.startDate && dateStr <= r.endDate);
     const dayMeetings = allMeetings.filter(m => m.startTime.startsWith(dateStr));
-    
-    // Always show feedback even if no events
     setSelectedDayItems({ leaves: dayLeaves, meetings: dayMeetings, date: dateStr });
   };
 
   const handleItemDelete = async (type: 'LEAVE' | 'MEETING', id: string) => {
     if (!window.confirm('정말 삭제(취소)하시겠습니까?')) return;
-    
     if (type === 'LEAVE') {
       await dataService.deleteRequest(id);
     } else {
       await dataService.deleteMeeting(id);
     }
-    
     setSelectedDetail(null);
     setSelectedDayItems(null);
     await fetchData();
@@ -179,49 +175,49 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Team Timeline Calendar */}
-      <div className="bg-white p-6 md:p-12 rounded-[40px] shadow-sm border border-slate-100">
-        <div className="flex flex-col md:flex-row items-center justify-between mb-10 gap-8">
-          <div className="flex items-center gap-3">
+      <div className="bg-white p-4 md:p-12 rounded-[32px] md:rounded-[40px] shadow-sm border border-slate-100 overflow-hidden">
+        <div className="flex flex-col md:flex-row items-center justify-between mb-8 md:mb-10 gap-6 md:gap-8">
+          <div className="flex items-center gap-3 w-full md:w-auto">
             <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-100">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
             </div>
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">팀 타임라인</h2>
+            <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">팀 타임라인</h2>
           </div>
           
-          <div className="flex flex-col sm:flex-row items-center gap-6">
-            <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200 shadow-inner">
+          <div className="flex flex-col sm:flex-row items-center gap-4 md:gap-6 w-full md:w-auto">
+            <div className="flex w-full sm:w-auto bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-inner">
                 <button 
                     onClick={() => setFilterType('ALL')}
-                    className={`px-6 py-2.5 rounded-xl text-[11px] font-black transition-all ${filterType === 'ALL' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                    className={`flex-1 sm:flex-none px-4 md:px-6 py-2 rounded-xl text-[10px] md:text-[11px] font-black transition-all ${filterType === 'ALL' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                 >
                     전체 팀
                 </button>
                 <button 
                     onClick={() => setFilterType('MY_TEAM')}
-                    className={`px-6 py-2.5 rounded-xl text-[11px] font-black transition-all ${filterType === 'MY_TEAM' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                    className={`flex-1 sm:flex-none px-4 md:px-6 py-2 rounded-xl text-[10px] md:text-[11px] font-black transition-all ${filterType === 'MY_TEAM' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                 >
-                    내 팀 ({currentUser.team})
+                    내 팀
                 </button>
             </div>
 
-            <div className="flex items-center gap-6 bg-slate-50 p-2.5 rounded-[24px] border border-slate-100">
-              <button onClick={() => setViewDate(new Date(viewYear, viewMonth - 1, 1))} className="w-10 h-10 flex items-center justify-center hover:bg-white rounded-xl text-slate-400 hover:text-indigo-600 transition-all shadow-sm hover:shadow-md"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7"/></svg></button>
-              <span className="text-base font-black text-slate-900 min-w-[120px] text-center">{viewYear}년 {viewMonth + 1}월</span>
-              <button onClick={() => setViewDate(new Date(viewYear, viewMonth + 1, 1))} className="w-10 h-10 flex items-center justify-center hover:bg-white rounded-xl text-slate-400 hover:text-indigo-600 transition-all shadow-sm hover:shadow-md"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7"/></svg></button>
+            <div className="flex items-center gap-4 bg-slate-50 p-1.5 rounded-[20px] border border-slate-100 w-full sm:w-auto justify-between sm:justify-center">
+              <button onClick={() => setViewDate(new Date(viewYear, viewMonth - 1, 1))} className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center hover:bg-white rounded-xl text-slate-400 hover:text-indigo-600 transition-all shadow-sm"><svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7"/></svg></button>
+              <span className="text-sm md:text-base font-black text-slate-900 min-w-[100px] text-center">{viewYear}년 {viewMonth + 1}월</span>
+              <button onClick={() => setViewDate(new Date(viewYear, viewMonth + 1, 1))} className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center hover:bg-white rounded-xl text-slate-400 hover:text-indigo-600 transition-all shadow-sm"><svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7"/></svg></button>
             </div>
           </div>
         </div>
         
-        <div className="overflow-hidden rounded-[32px] border border-slate-100 shadow-2xl shadow-slate-200/50 bg-slate-100">
+        <div className="overflow-hidden rounded-[24px] md:rounded-[32px] border border-slate-100 bg-slate-100 shadow-inner">
           <div className="grid grid-cols-7 gap-px">
             {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map((d, i) => (
-              <div key={d} className={`bg-slate-50/90 py-5 text-center text-[10px] md:text-[11px] font-black tracking-[0.2em] border-b border-slate-100 ${i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : 'text-slate-400'}`}>
+              <div key={d} className={`bg-slate-50/90 py-3 md:py-5 text-center text-[8px] md:text-[11px] font-black tracking-[0.1em] md:tracking-[0.2em] border-b border-slate-100 ${i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : 'text-slate-400'}`}>
                 {d}
               </div>
             ))}
 
             {Array.from({ length: firstDayOfMonth }).map((_, i) => (
-              <div key={`empty-${i}`} className="bg-slate-50/30 min-h-[140px]"></div>
+              <div key={`empty-${i}`} className="bg-slate-50/30 min-h-[80px] md:min-h-[140px]"></div>
             ))}
 
             {Array.from({ length: daysInMonth }).map((_, i) => {
@@ -236,25 +232,26 @@ const Dashboard: React.FC = () => {
                 <div 
                   key={i} 
                   onClick={() => handleDayClick(dateStr)}
-                  className={`bg-white min-h-[140px] p-2 md:p-4 flex flex-col gap-3 border-b border-r border-slate-50 last:border-r-0 hover:bg-indigo-50/10 transition-all duration-300 group cursor-pointer relative ${isWeekend ? 'bg-slate-50/20' : ''}`}
+                  className={`bg-white min-h-[80px] md:min-h-[140px] p-1.5 md:p-4 flex flex-col gap-1.5 md:gap-3 border-b border-r border-slate-50 last:border-r-0 hover:bg-indigo-50/10 transition-all duration-300 group cursor-pointer relative ${isWeekend ? 'bg-slate-50/20' : ''}`}
                 >
                   <div className="flex justify-between items-start pointer-events-none">
-                    <span className={`text-xs md:text-sm font-black transition-all flex items-center justify-center ${
+                    <span className={`text-[10px] md:text-sm font-black transition-all flex items-center justify-center ${
                       isToday 
-                        ? 'bg-indigo-600 text-white w-7 h-7 md:w-9 md:h-9 rounded-xl shadow-lg shadow-indigo-200 scale-110' 
+                        ? 'bg-indigo-600 text-white w-5 h-5 md:w-9 md:h-9 rounded-lg md:rounded-xl shadow-lg shadow-indigo-200' 
                         : (firstDayOfMonth + i) % 7 === 0 ? 'text-red-400' : (firstDayOfMonth + i) % 7 === 6 ? 'text-blue-400' : 'text-slate-300 group-hover:text-slate-900'
                     }`}>
                       {day}
                     </span>
                   </div>
                   
-                  <div className="flex flex-col gap-1.5 overflow-hidden pointer-events-none">
+                  {/* Desktop View: Show labels */}
+                  <div className="hidden md:flex flex-col gap-1.5 overflow-hidden pointer-events-none">
                     {dayEvents.slice(0, 3).map((ev, idx) => (
                       <div 
                         key={`ev-${idx}`} 
                         className={`text-[9px] md:text-[11px] px-2.5 py-1.5 rounded-xl font-black truncate leading-none shadow-sm border border-white/50 ${LEAVE_TYPE_COLORS[ev.type].split(' border')[0]}`}
                       >
-                        <span className="opacity-60 mr-1 hidden md:inline">●</span> {ev.userName} {ev.type === 'HALF_DAY' ? `(${ev.halfDayType === 'MORNING' ? '오전' : '오후'})` : ''}
+                        {ev.userName} {ev.type === 'HALF_DAY' ? `(${ev.halfDayType === 'MORNING' ? '오전' : '오후'})` : ''}
                       </div>
                     ))}
                     
@@ -263,18 +260,24 @@ const Dashboard: React.FC = () => {
                         key={`mt-${idx}`} 
                         className="text-[9px] md:text-[11px] px-2.5 py-1.5 rounded-xl bg-indigo-600 text-white truncate font-black leading-none shadow-md shadow-indigo-100 flex items-center gap-1.5"
                       >
-                        <div className="w-1.5 h-1.5 rounded-full bg-white shrink-0 hidden md:block"></div>
+                        <div className="w-1.5 h-1.5 rounded-full bg-white shrink-0"></div>
                         <span className="truncate">{mt.title.includes(']') ? mt.title.split(']')[1].trim() : mt.title}</span>
                       </div>
                     ))}
-                    
-                    {(dayEvents.length + dayMeetings.length) > 0 && (
-                        <div className="flex gap-1 mt-1 justify-center md:hidden">
-                            {Array.from({length: Math.min(3, dayEvents.length + dayMeetings.length)}).map((_, i) => (
-                                <div key={i} className="w-2 h-2 rounded-full bg-indigo-400/30"></div>
-                            ))}
-                        </div>
-                    )}
+                  </div>
+
+                  {/* Mobile View: Show Dots */}
+                  <div className="flex md:hidden flex-wrap gap-1 mt-auto pb-1 justify-center pointer-events-none">
+                    {dayEvents.map((ev, idx) => (
+                      <div key={`dot-ev-${idx}`} className={`w-1.5 h-1.5 rounded-full ${
+                        ev.type === 'VACATION' ? 'bg-emerald-400' : 
+                        ev.type === 'HALF_DAY' ? 'bg-teal-400' : 
+                        ev.type === 'BUSINESS_TRIP' ? 'bg-blue-400' : 'bg-slate-400'
+                      }`}></div>
+                    ))}
+                    {dayMeetings.map((mt, idx) => (
+                      <div key={`dot-mt-${idx}`} className="w-1.5 h-1.5 rounded-full bg-indigo-600"></div>
+                    ))}
                   </div>
                 </div>
               );
@@ -330,25 +333,6 @@ const Dashboard: React.FC = () => {
                 </p>
               </div>
 
-              {selectedDetail.type === 'MEETING' && (
-                <div className="space-y-3">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">참석자</p>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedDetail.item.participants.map((pid: string) => {
-                      const puser = allUsers.find(u => u.id === pid);
-                      return (
-                        <div key={pid} className="px-3 py-1.5 bg-slate-100 rounded-xl text-[11px] font-bold text-slate-600 flex items-center gap-2">
-                          <div className="w-5 h-5 bg-indigo-600 rounded-md flex items-center justify-center text-[8px] text-white">
-                            {puser?.name.charAt(0) || '?'}
-                          </div>
-                          {puser?.name || 'Unknown'}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
               <div className="pt-4 flex gap-4">
                 {(isSuperAdmin(currentUser.email) || 
                   (selectedDetail.type === 'MEETING' && selectedDetail.item.organizerId === currentUser.id) ||
@@ -369,7 +353,7 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Day Items Summary Modal - Mobile & Desktop Improved */}
+      {/* Day Items Summary Modal */}
       {selectedDayItems && !selectedDetail && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md transition-all duration-300">
           <div className="bg-white w-full max-w-md rounded-[40px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col max-h-[85vh]">
@@ -395,7 +379,7 @@ const Dashboard: React.FC = () => {
 
               {selectedDayItems.meetings.map(mt => (
                 <div key={mt.id} onClick={() => setSelectedDetail({type: 'MEETING', item: mt})} className="p-5 bg-indigo-50 border border-indigo-100 rounded-[28px] cursor-pointer hover:scale-[1.02] transition-all flex items-center gap-4 group">
-                  <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-md group-hover:shadow-indigo-200 transition-all">
+                  <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-md transition-all">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                   </div>
                   <div className="flex-1 min-w-0">
@@ -406,7 +390,7 @@ const Dashboard: React.FC = () => {
               ))}
               {selectedDayItems.leaves.map(lv => (
                 <div key={lv.id} onClick={() => setSelectedDetail({type: 'LEAVE', item: lv})} className={`p-5 border rounded-[28px] cursor-pointer hover:scale-[1.02] transition-all flex items-center gap-4 group ${LEAVE_TYPE_COLORS[lv.type]}`}>
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black shadow-sm group-hover:shadow-indigo-50 transition-all ${LEAVE_TYPE_COLORS[lv.type].split(' border')[0]}`}>
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black shadow-sm transition-all ${LEAVE_TYPE_COLORS[lv.type].split(' border')[0]}`}>
                     {lv.userName.charAt(0)}
                   </div>
                   <div className="flex-1 min-w-0">
