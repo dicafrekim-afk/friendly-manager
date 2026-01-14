@@ -166,7 +166,7 @@ const Dashboard: React.FC = () => {
                   <p className="text-[11px] font-bold text-slate-400 mt-0.5">{event.startDate.replace(/-/g, '.')}</p>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-[10px] font-black border tracking-tighter whitespace-nowrap ${LEAVE_TYPE_COLORS[event.type]}`}>
-                  {LEAVE_TYPE_LABELS[event.type]}
+                  {LEAVE_TYPE_LABELS[event.type]} {event.type === 'HALF_DAY' ? `(${event.halfDayType === 'MORNING' ? '오전' : '오후'})` : ''}
                 </span>
               </div>
             )) : (
@@ -254,7 +254,7 @@ const Dashboard: React.FC = () => {
                         key={`ev-${idx}`} 
                         className={`text-[9px] md:text-[11px] px-2.5 py-1.5 rounded-xl font-black truncate leading-none shadow-sm border border-white/50 ${LEAVE_TYPE_COLORS[ev.type].split(' border')[0]}`}
                       >
-                        <span className="opacity-60 mr-1 hidden md:inline">●</span> {ev.userName}
+                        <span className="opacity-60 mr-1 hidden md:inline">●</span> {ev.userName} {ev.type === 'HALF_DAY' ? `(${ev.halfDayType === 'MORNING' ? '오전' : '오후'})` : ''}
                       </div>
                     ))}
                     
@@ -291,6 +291,7 @@ const Dashboard: React.FC = () => {
               <div className="flex justify-between items-start mb-6">
                 <span className="px-4 py-1.5 bg-white/20 rounded-full text-[10px] font-black tracking-widest uppercase backdrop-blur-md">
                   {selectedDetail.type === 'MEETING' ? 'Meeting' : LEAVE_TYPE_LABELS[selectedDetail.item.type]}
+                  {selectedDetail.type === 'LEAVE' && selectedDetail.item.type === 'HALF_DAY' ? ` (${selectedDetail.item.halfDayType === 'MORNING' ? '오전' : '오후'})` : ''}
                 </span>
                 <button onClick={() => setSelectedDetail(null)} className="p-2 hover:bg-black/10 rounded-full transition-colors">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -308,7 +309,7 @@ const Dashboard: React.FC = () => {
                   <p className="text-sm font-bold text-slate-700">
                     {selectedDetail.type === 'MEETING' 
                       ? `${selectedDetail.item.startTime.split('T')[0]} ${selectedDetail.item.startTime.split('T')[1].substring(0,5)}`
-                      : `${selectedDetail.item.startDate} ~ ${selectedDetail.item.endDate}`
+                      : selectedDetail.item.type === 'HALF_DAY' ? selectedDetail.item.startDate : `${selectedDetail.item.startDate} ~ ${selectedDetail.item.endDate}`
                     }
                   </p>
                 </div>
@@ -409,7 +410,9 @@ const Dashboard: React.FC = () => {
                     {lv.userName.charAt(0)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-black opacity-60 uppercase tracking-widest">{LEAVE_TYPE_LABELS[lv.type]}</p>
+                    <p className="text-[10px] font-black opacity-60 uppercase tracking-widest">
+                      {LEAVE_TYPE_LABELS[lv.type]} {lv.type === 'HALF_DAY' ? `(${lv.halfDayType === 'MORNING' ? '오전' : '오후'})` : ''}
+                    </p>
                     <p className="text-sm font-bold truncate">{lv.userName}님</p>
                   </div>
                 </div>

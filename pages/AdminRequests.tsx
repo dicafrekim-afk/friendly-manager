@@ -98,13 +98,22 @@ const AdminRequests: React.FC = () => {
                       <p className="text-[9px] font-bold text-slate-400">{req.userTeam || '공통'}</p>
                     </td>
                     <td className="px-6 py-5">
-                      <span className={`px-2 py-0.5 rounded text-[9px] font-black border uppercase ${LEAVE_TYPE_COLORS[req.type]}`}>{LEAVE_TYPE_LABELS[req.type]}</span>
+                      <div className="flex flex-col gap-1">
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-black border uppercase w-fit ${LEAVE_TYPE_COLORS[req.type]}`}>
+                          {LEAVE_TYPE_LABELS[req.type]}
+                        </span>
+                        {req.type === 'HALF_DAY' && req.halfDayType && (
+                          <span className="text-[8px] font-black text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-100 w-fit">
+                            {req.halfDayType === 'MORNING' ? '오전' : '오후'}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-5">
                       <p className="text-[11px] font-bold text-slate-500 line-clamp-1 max-w-[200px]">{req.reason}</p>
                     </td>
                     <td className="px-6 py-5 text-[11px] font-bold text-slate-400 whitespace-nowrap">
-                      {req.startDate} ~ {req.endDate}
+                      {req.type === 'HALF_DAY' ? req.startDate : `${req.startDate} ~ ${req.endDate}`}
                     </td>
                     <td className="px-6 py-5">
                       <div className="flex flex-col gap-1">

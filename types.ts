@@ -26,6 +26,7 @@ export interface LeaveRequest {
   userName: string;
   userTeam: Team; 
   type: LeaveType;
+  halfDayType?: 'MORNING' | 'AFTERNOON'; // 반차 상세 유형 추가
   startDate: string;
   endDate: string;
   reason: string;

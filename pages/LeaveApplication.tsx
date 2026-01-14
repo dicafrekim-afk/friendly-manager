@@ -8,6 +8,7 @@ import { aiService } from '../services/aiService';
 const LeaveApplication: React.FC = () => {
   const currentUser: User = JSON.parse(localStorage.getItem('friendly_current_session') || '{}');
   const [type, setType] = useState<LeaveType>('VACATION');
+  const [halfDayType, setHalfDayType] = useState<'MORNING' | 'AFTERNOON'>('MORNING');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [reason, setReason] = useState('');
@@ -64,6 +65,7 @@ const LeaveApplication: React.FC = () => {
         userName: currentUser.name,
         userTeam: currentUser.team,
         type,
+        halfDayType: type === 'HALF_DAY' ? halfDayType : undefined,
         startDate,
         endDate,
         reason,
@@ -121,10 +123,39 @@ const LeaveApplication: React.FC = () => {
           </div>
         </div>
 
+        {/* 반차 전용 옵션 */}
+        {type === 'HALF_DAY' && (
+          <div className="space-y-4 animate-in slide-in-from-top-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">반차 상세 선택</label>
+            <div className="flex gap-3">
+              <button 
+                type="button" 
+                onClick={() => setHalfDayType('MORNING')}
+                className={`flex-1 py-4 rounded-2xl text-xs font-black transition-all border-2 ${
+                  halfDayType === 'MORNING' ? 'bg-teal-600 text-white border-teal-600 shadow-lg' : 'bg-slate-50 text-slate-400 border-slate-50'
+                }`}
+              >
+                오전 반차
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setHalfDayType('AFTERNOON')}
+                className={`flex-1 py-4 rounded-2xl text-xs font-black transition-all border-2 ${
+                  halfDayType === 'AFTERNOON' ? 'bg-teal-600 text-white border-teal-600 shadow-lg' : 'bg-slate-50 text-slate-400 border-slate-50'
+                }`}
+              >
+                오후 반차
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-3">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">시작일</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">
+                {type === 'HALF_DAY' ? '반차 날짜' : '시작일'}
+              </label>
               <input required type="date" value={startDate} onChange={(e) => {setStartDate(e.target.value); if(!endDate || type === 'HALF_DAY') setEndDate(e.target.value);}} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-2 border-slate-50 focus:bg-white focus:border-indigo-600 outline-none text-sm font-black transition-all" />
             </div>
             <div className="space-y-3">
