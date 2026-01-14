@@ -59,13 +59,14 @@ const LeaveApplication: React.FC = () => {
 
     setIsSubmitting(true);
     try {
+      // halfDayType이 없는 경우 null로 명시하여 Supabase 오류 방지
       const newRequest: LeaveRequest = {
         id: `req-${Date.now()}`,
         userId: currentUser.id,
         userName: currentUser.name,
         userTeam: currentUser.team,
         type,
-        halfDayType: type === 'HALF_DAY' ? halfDayType : undefined,
+        halfDayType: type === 'HALF_DAY' ? halfDayType : undefined, // interface에 따라 undefined 유지하되 SQL 전달시 dataService에서 처리
         startDate,
         endDate,
         reason,

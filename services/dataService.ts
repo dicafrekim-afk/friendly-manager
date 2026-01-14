@@ -149,7 +149,8 @@ export const dataService = {
     const finalRequest = { 
       ...request, 
       status: initialStatus,
-      userTeam: currentUser?.team || request.userTeam || '공통'
+      userTeam: currentUser?.team || request.userTeam || '공통',
+      halfDayType: request.type === 'HALF_DAY' ? request.halfDayType : null
     };
 
     if (isSupabaseConfigured) {
@@ -175,7 +176,7 @@ export const dataService = {
             type: 'INFO',
             createdAt: new Date().toISOString(),
             isRead: false,
-            link: '/admin/requests' // 링크 추가
+            link: '/admin/requests'
         };
         await this.createNotification(adminNotif);
     }
@@ -196,7 +197,6 @@ export const dataService = {
       await this.deductLeave(targetReq.userId, diffDays);
     }
 
-    // 신청자에게 알림
     if (targetReq) {
         const userNotif: Notification = {
             id: `res-${Date.now()}`,
@@ -206,7 +206,7 @@ export const dataService = {
             type: status === 'APPROVED' ? 'SUCCESS' : 'WARNING',
             createdAt: new Date().toISOString(),
             isRead: false,
-            link: '/' // 홈(대시보드)으로 이동
+            link: '/'
         };
         await this.createNotification(userNotif);
     }
@@ -233,7 +233,9 @@ export const dataService = {
     const users = await this.getUsers();
     const user = users.find(u => u.id === userId);
     if (user) {
-      const newUsedLeave = (user.usedLeave || 0) + days;
+      // 명시적으로 숫자로 변환하여 계산
+      const currentUsed = Number(user.usedLeave || 0);
+      const newUsedLeave = currentUsed + Number(days);
       await this.updateUser(userId, { usedLeave: newUsedLeave });
     }
   },
@@ -242,7 +244,9 @@ export const dataService = {
     const users = await this.getUsers();
     const user = users.find(u => u.id === userId);
     if (user) {
-      const newUsedLeave = Math.max(0, (user.usedLeave || 0) - days);
+      // 명시적으로 숫자로 변환하여 계산
+      const currentUsed = Number(user.usedLeave || 0);
+      const newUsedLeave = Math.max(0, currentUsed - Number(days));
       await this.updateUser(userId, { usedLeave: newUsedLeave });
     }
   },
