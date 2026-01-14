@@ -1,7 +1,7 @@
 
 export type Role = 'ADMIN' | 'USER';
 export type Status = 'PENDING' | 'PENDING_PL' | 'PENDING_FINAL' | 'APPROVED' | 'REJECTED';
-export type LeaveType = 'VACATION' | 'BUSINESS_TRIP' | 'SICK_LEAVE' | 'OTHER';
+export type LeaveType = 'VACATION' | 'HALF_DAY' | 'BUSINESS_TRIP' | 'SICK_LEAVE' | 'OTHER';
 export type Team = '공채' | '경채' | '특정직' | '공통';
 
 export interface User {

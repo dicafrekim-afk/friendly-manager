@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { LeaveType, LeaveRequest, User } from '../types';
 import { LEAVE_TYPE_LABELS } from '../constants';
 import { dataService } from '../services/dataService';
@@ -15,14 +15,22 @@ const LeaveApplication: React.FC = () => {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
+  // 반차 선택 시 날짜 고정 처리
+  useEffect(() => {
+    if (type === 'HALF_DAY' && startDate) {
+      setEndDate(startDate);
+    }
+  }, [type, startDate]);
+
   const diffDays = useMemo(() => {
+    if (type === 'HALF_DAY') return 0.5;
     if (!startDate || !endDate) return 0;
     const start = new Date(startDate);
     const end = new Date(endDate);
     if (start > end) return 0;
     const diffTime = Math.abs(end.getTime() - start.getTime());
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-  }, [startDate, endDate]);
+  }, [type, startDate, endDate]);
 
   const handleAiSuggest = async () => {
     if (!reason) return;
@@ -43,7 +51,8 @@ const LeaveApplication: React.FC = () => {
       return;
     }
     
-    if (type === 'VACATION' && diffDays > (currentUser.totalLeave - currentUser.usedLeave)) {
+    const remainingLeave = currentUser.totalLeave - currentUser.usedLeave;
+    if ((type === 'VACATION' || type === 'HALF_DAY') && diffDays > remainingLeave) {
       if (!window.confirm('신청하신 휴가 일수가 잔여 연차보다 많습니다. 계속하시겠습니까?')) return;
     }
 
@@ -96,13 +105,13 @@ const LeaveApplication: React.FC = () => {
       <form onSubmit={handleSubmit} className="bg-white p-8 md:p-12 rounded-[40px] shadow-sm border border-slate-100 space-y-10">
         <div className="space-y-4">
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">유형 선택</label>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {(Object.keys(LEAVE_TYPE_LABELS) as LeaveType[]).map(t => (
               <button 
                 key={t} 
                 type="button" 
                 onClick={() => setType(t)} 
-                className={`py-4 px-2 rounded-2xl text-xs font-black transition-all border-2 flex flex-col items-center gap-2 ${
+                className={`py-4 px-2 rounded-2xl text-[11px] font-black transition-all border-2 flex flex-col items-center gap-2 ${
                   type === t ? 'bg-indigo-600 text-white border-indigo-600 shadow-xl shadow-indigo-100 scale-105' : 'bg-slate-50 text-slate-400 border-slate-50 hover:bg-white hover:border-slate-100'
                 }`}
               >
@@ -116,11 +125,19 @@ const LeaveApplication: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-3">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">시작일</label>
-              <input required type="date" value={startDate} onChange={(e) => {setStartDate(e.target.value); if(!endDate) setEndDate(e.target.value);}} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-2 border-slate-50 focus:bg-white focus:border-indigo-600 outline-none text-sm font-black transition-all" />
+              <input required type="date" value={startDate} onChange={(e) => {setStartDate(e.target.value); if(!endDate || type === 'HALF_DAY') setEndDate(e.target.value);}} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-2 border-slate-50 focus:bg-white focus:border-indigo-600 outline-none text-sm font-black transition-all" />
             </div>
             <div className="space-y-3">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">종료일</label>
-              <input required type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} className="w-full px-6 py-4 rounded-2xl bg-slate-50 border-2 border-slate-50 focus:bg-white focus:border-indigo-600 outline-none text-sm font-black transition-all" />
+              <input 
+                required 
+                type="date" 
+                value={endDate} 
+                min={startDate} 
+                disabled={type === 'HALF_DAY'}
+                onChange={(e) => setEndDate(e.target.value)} 
+                className={`w-full px-6 py-4 rounded-2xl bg-slate-50 border-2 border-slate-50 focus:bg-white focus:border-indigo-600 outline-none text-sm font-black transition-all ${type === 'HALF_DAY' ? 'opacity-50 cursor-not-allowed' : ''}`} 
+              />
             </div>
           </div>
           

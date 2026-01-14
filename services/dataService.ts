@@ -1,5 +1,5 @@
 
-import { User, LeaveRequest, Status, Notification, Meeting, Team } from '../types';
+import { User, LeaveRequest, Status, Notification, Meeting, Team, LeaveType } from '../types';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 export const SUPER_ADMIN_EMAILS = [
@@ -24,9 +24,11 @@ const INITIAL_ADMIN: User = {
   joinDate: new Date().toISOString().split('T')[0]
 };
 
-const calculateDiffDays = (startDate: string, endDate: string): number => {
+const calculateLeaveDays = (type: LeaveType, startDate: string, endDate: string): number => {
+  if (type === 'HALF_DAY') return 0.5;
   const start = new Date(startDate);
   const end = new Date(endDate);
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
   return Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
 };
 
@@ -158,8 +160,8 @@ export const dataService = {
     const reqs = await this.getRequests();
     localStorage.setItem('friendly_requests', JSON.stringify([...reqs.filter(r => r.id !== request.id), finalRequest]));
 
-    if (initialStatus === 'APPROVED' && request.type === 'VACATION') {
-      const diffDays = calculateDiffDays(request.startDate, request.endDate);
+    if (initialStatus === 'APPROVED' && (request.type === 'VACATION' || request.type === 'HALF_DAY')) {
+      const diffDays = calculateLeaveDays(request.type, request.startDate, request.endDate);
       await this.deductLeave(request.userId, diffDays);
     }
 
@@ -189,8 +191,8 @@ export const dataService = {
     const updatedReqs = reqs.map(r => r.id === requestId ? { ...r, status } : r);
     localStorage.setItem('friendly_requests', JSON.stringify(updatedReqs));
 
-    if (status === 'APPROVED' && targetReq && targetReq.type === 'VACATION') {
-      const diffDays = calculateDiffDays(targetReq.startDate, targetReq.endDate);
+    if (status === 'APPROVED' && targetReq && (targetReq.type === 'VACATION' || targetReq.type === 'HALF_DAY')) {
+      const diffDays = calculateLeaveDays(targetReq.type, targetReq.startDate, targetReq.endDate);
       await this.deductLeave(targetReq.userId, diffDays);
     }
 
@@ -214,8 +216,8 @@ export const dataService = {
     const reqs = await this.getRequests();
     const targetReq = reqs.find(r => r.id === requestId);
     
-    if (targetReq && targetReq.status === 'APPROVED' && targetReq.type === 'VACATION') {
-      const diffDays = calculateDiffDays(targetReq.startDate, targetReq.endDate);
+    if (targetReq && targetReq.status === 'APPROVED' && (targetReq.type === 'VACATION' || targetReq.type === 'HALF_DAY')) {
+      const diffDays = calculateLeaveDays(targetReq.type, targetReq.startDate, targetReq.endDate);
       await this.restoreLeave(targetReq.userId, diffDays);
     }
 
