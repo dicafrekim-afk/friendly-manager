@@ -3,7 +3,7 @@ import { User, LeaveRequest, Status, Notification, Meeting, Team, LeaveType } fr
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 export const SUPER_ADMIN_EMAILS = [
-  'dicafrekim@naver.com',
+  'sllee0531@mail.go.kr',
   'aldari25@naver.com',
   'lankypark@gmail.com'
 ];
@@ -233,7 +233,6 @@ export const dataService = {
     const users = await this.getUsers();
     const user = users.find(u => u.id === userId);
     if (user) {
-      // 명시적으로 숫자로 변환하여 계산
       const currentUsed = Number(user.usedLeave || 0);
       const newUsedLeave = currentUsed + Number(days);
       await this.updateUser(userId, { usedLeave: newUsedLeave });
@@ -244,7 +243,6 @@ export const dataService = {
     const users = await this.getUsers();
     const user = users.find(u => u.id === userId);
     if (user) {
-      // 명시적으로 숫자로 변환하여 계산
       const currentUsed = Number(user.usedLeave || 0);
       const newUsedLeave = Math.max(0, currentUsed - Number(days));
       await this.updateUser(userId, { usedLeave: newUsedLeave });

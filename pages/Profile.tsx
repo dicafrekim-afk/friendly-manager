@@ -31,8 +31,9 @@ const Profile: React.FC = () => {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        alert('이미지 크기는 2MB를 초과할 수 없습니다.');
+      // 5MB 용량 제한 체크 (5 * 1024 * 1024 bytes)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('이미지 파일이 너무 커요! 5MB 이하의 사진을 선택해 주세요. 😊');
         return;
       }
       const reader = new FileReader();
@@ -58,7 +59,7 @@ const Profile: React.FC = () => {
       };
       
       await dataService.updateUser(currentUser.id, updates);
-      alert('개인 정보가 성공적으로 수정되었습니다.');
+      alert('개인 정보가 소중하게 저장되었습니다! ✨');
       
       // 세션 갱신을 위해 로컬 스토리지 데이터 동기화
       const updatedUser = { ...currentUser, ...updates };
@@ -68,7 +69,7 @@ const Profile: React.FC = () => {
       // 앱 전체의 Header 등에서 인식할 수 있게 이벤트 발생
       window.dispatchEvent(new Event('storage'));
     } catch (error) {
-      alert('정보 수정 중 오류가 발생했습니다.');
+      alert('정보를 저장하는 중에 문제가 생겼어요. 잠시 후 다시 시도해 주세요. 😥');
     } finally {
       setIsSaving(false);
     }
@@ -80,11 +81,11 @@ const Profile: React.FC = () => {
     <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in duration-500 pb-20">
       <div>
         <h1 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tight">개인 정보 수정</h1>
-        <p className="text-sm font-bold text-slate-400 mt-2">나의 프로필과 연락처를 관리하세요.</p>
+        <p className="text-sm font-bold text-slate-400 mt-2">나의 프로필과 연락처를 친절하게 관리해 드릴게요.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="bg-white p-8 md:p-12 rounded-[40px] shadow-sm border border-slate-100 space-y-10">
-        {/* Profile Image Section */}
+        {/* 프로필 이미지 섹션 */}
         <div className="flex flex-col items-center gap-6">
           <div className="relative group">
             <div className="w-32 h-32 rounded-[40px] bg-slate-100 overflow-hidden border-4 border-white shadow-xl flex items-center justify-center">
@@ -103,12 +104,12 @@ const Profile: React.FC = () => {
             </button>
             <input type="file" ref={fileInputRef} onChange={handleImageChange} accept="image/*" className="hidden" />
           </div>
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">사진을 클릭하여 변경하세요 (Max 2MB)</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">사진을 클릭하여 변경해 보세요<br/>(최대 5MB까지 가능해요)</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">이름</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">성함</label>
             <input required type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-2 border-slate-50 focus:border-indigo-600 focus:bg-white outline-none text-sm font-black transition-all" />
           </div>
           <div className="space-y-2">
@@ -140,7 +141,7 @@ const Profile: React.FC = () => {
             disabled={isSaving}
             className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black text-lg shadow-2xl shadow-indigo-100 hover:bg-indigo-700 active:scale-[0.98] transition-all disabled:bg-slate-300"
           >
-            {isSaving ? '저장 중...' : '변경 사항 저장'}
+            {isSaving ? '저장하고 있어요...' : '변경 사항 저장하기'}
           </button>
         </div>
       </form>

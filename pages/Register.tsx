@@ -69,7 +69,7 @@ const Register: React.FC = () => {
 
   const openMailClient = () => {
     if (!emailData) return;
-    const adminEmail = 'dicafrekim@naver.com';
+    const adminEmail = 'sllee0531@mail.go.kr';
     const subject = encodeURIComponent(emailData.subject);
     const body = encodeURIComponent(emailData.body);
     window.location.href = `mailto:${adminEmail}?subject=${subject}&body=${body}`;
