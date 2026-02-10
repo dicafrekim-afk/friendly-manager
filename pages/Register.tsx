@@ -28,6 +28,7 @@ const Register: React.FC = () => {
         return;
       }
 
+      // Fix: Add missing properties required by the User interface
       const newUser: User = {
         id: `u-${Date.now()}`,
         email,
@@ -40,6 +41,8 @@ const Register: React.FC = () => {
         status: 'PENDING',
         totalLeave: 15,
         usedLeave: 0,
+        extraLeaveAvailable: 0,
+        extraLeaveUsed: 0,
         joinDate: new Date().toISOString().split('T')[0]
       };
 

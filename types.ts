@@ -1,7 +1,7 @@
 
 export type Role = 'ADMIN' | 'USER';
 export type Status = 'PENDING' | 'PENDING_PL' | 'PENDING_FINAL' | 'APPROVED' | 'REJECTED';
-export type LeaveType = 'VACATION' | 'HALF_DAY' | 'BUSINESS_TRIP' | 'SICK_LEAVE' | 'OTHER';
+export type LeaveType = 'VACATION' | 'HALF_DAY' | 'BUSINESS_TRIP' | 'SICK_LEAVE' | 'OTHER' | 'EXTRA_LEAVE';
 export type Team = '공채' | '경채' | '특정직' | '공통';
 
 export interface User {
@@ -15,9 +15,11 @@ export interface User {
   status: 'PENDING' | 'APPROVED' | 'REJECTED'; 
   totalLeave: number;
   usedLeave: number;
+  extraLeaveAvailable: number; // 보유 보상 휴가
+  extraLeaveUsed: number;      // 사용 보상 휴가
   joinDate: string;
-  phone?: string;         // 전화번호 추가
-  profileImage?: string;  // 프로필 이미지 (Base64) 추가
+  phone?: string;
+  profileImage?: string;
 }
 
 export interface LeaveRequest {
@@ -26,12 +28,26 @@ export interface LeaveRequest {
   userName: string;
   userTeam: Team; 
   type: LeaveType;
-  halfDayType?: 'MORNING' | 'AFTERNOON'; // 반차 상세 유형 추가
+  halfDayType?: 'MORNING' | 'AFTERNOON';
   startDate: string;
   endDate: string;
   reason: string;
   status: Status; 
   approverId?: string;
+  createdAt: string;
+}
+
+// 추가 근무(주말/철야) 보고 인터페이스
+export interface ExtraWorkReport {
+  id: string;
+  userId: string;
+  userName: string;
+  userTeam: Team;
+  workDate: string;
+  workType: 'WEEKEND' | 'OVERTIME'; // 주말 또는 철야
+  rewardAmount: number; // 보상 수량 (0.5 또는 1.0)
+  reason: string;
+  status: Status;
   createdAt: string;
 }
 
@@ -53,5 +69,5 @@ export interface Notification {
   type: 'INFO' | 'WARNING' | 'SUCCESS';
   createdAt: string;
   isRead: boolean;
-  link?: string; // 이동할 경로 추가
+  link?: string;
 }
