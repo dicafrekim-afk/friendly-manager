@@ -16,22 +16,28 @@ const Header: React.FC<HeaderProps> = ({ user, onMenuToggle }) => {
 
   useEffect(() => {
     const fetchNotifications = async () => {
-      const data = await dataService.getNotifications(user.id);
-      setNotifications(data);
+      try {
+        const data = await dataService.getNotifications(user.id);
+        setNotifications(data || []);
+      } catch (err) {
+        console.debug('Notification fetch error, might be missing table.');
+      }
     };
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 5000);
+    const interval = setInterval(fetchNotifications, 10000); // 10초로 주기 완화
     return () => clearInterval(interval);
   }, [user.id]);
 
   const handleNotificationClick = async (notif: Notification) => {
-    await dataService.markAsRead(notif.id);
-    setShowNotifications(false);
-    if (notif.link) {
-        navigate(notif.link);
-    }
-    const data = await dataService.getNotifications(user.id);
-    setNotifications(data);
+    try {
+      await dataService.markAsRead(notif.id);
+      setShowNotifications(false);
+      if (notif.link) {
+          navigate(notif.link);
+      }
+      const data = await dataService.getNotifications(user.id);
+      setNotifications(data || []);
+    } catch (err) {}
   };
 
   const unreadCount = notifications.filter(n => !n.isRead).length;

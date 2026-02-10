@@ -34,42 +34,45 @@ const calculateLeaveDays = (type: LeaveType, startDate: string, endDate: string)
   return Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
 };
 
+// 공통 폴백 처리 함수
+const getLocal = (key: string) => {
+  const data = localStorage.getItem(key);
+  return data ? JSON.parse(data) : [];
+};
+
+const setLocal = (key: string, data: any) => {
+  localStorage.setItem(key, JSON.stringify(data));
+};
+
 export const dataService = {
   async getUsers(): Promise<User[]> {
     if (isSupabaseConfigured) {
       try {
-        const { data, error, status } = await supabase.from('users').select('*').order('joinDate', { ascending: false });
-        if (error) throw error;
-        if (data && data.length > 0) return data as User[];
-        await this.register(INITIAL_ADMIN);
-        return [INITIAL_ADMIN];
-      } catch (e) { console.error(e); }
+        const { data, error } = await supabase.from('users').select('*').order('joinDate', { ascending: false });
+        if (!error && data && data.length > 0) return data as User[];
+      } catch (e) { console.debug('Supabase Users Table not found, falling back to local.'); }
     }
-    const localData = localStorage.getItem('friendly_users');
-    let users = localData ? JSON.parse(localData) : [];
+    let users = getLocal('friendly_users');
     if (users.length === 0) {
       users = [INITIAL_ADMIN];
-      localStorage.setItem('friendly_users', JSON.stringify(users));
+      setLocal('friendly_users', users);
     }
     return users;
   },
 
   async register(user: User): Promise<void> {
-    const userWithDefaults = { 
-      ...user, 
-      extraLeaveAvailable: 0,
-      extraLeaveUsed: 0,
-      password: user.password || 'user1234'
-    };
-    if (isSupabaseConfigured) await supabase.from('users').upsert([userWithDefaults]);
+    const userWithDefaults = { ...user, extraLeaveAvailable: 0, extraLeaveUsed: 0, password: user.password || 'user1234' };
+    if (isSupabaseConfigured) {
+      try { await supabase.from('users').upsert([userWithDefaults]); } catch (e) {}
+    }
     const users = await this.getUsers();
-    localStorage.setItem('friendly_users', JSON.stringify([...users.filter(u => u.id !== user.id), userWithDefaults]));
+    setLocal('friendly_users', [...users.filter(u => u.id !== user.id), userWithDefaults]);
   },
 
   async updateUser(userId: string, updates: Partial<User>): Promise<void> {
     const users = await this.getUsers();
     const updatedUsers = users.map(u => u.id === userId ? { ...u, ...updates } : u);
-    localStorage.setItem('friendly_users', JSON.stringify(updatedUsers));
+    setLocal('friendly_users', updatedUsers);
     
     const sessionStr = localStorage.getItem('friendly_current_session');
     if (sessionStr) {
@@ -79,16 +82,19 @@ export const dataService = {
         window.dispatchEvent(new Event('storage'));
       }
     }
-    if (isSupabaseConfigured) await supabase.from('users').update(updates).eq('id', userId);
+    if (isSupabaseConfigured) {
+      try { await supabase.from('users').update(updates).eq('id', userId); } catch (e) {}
+    }
   },
 
   async getRequests(): Promise<LeaveRequest[]> {
     if (isSupabaseConfigured) {
-      const { data } = await supabase.from('leave_requests').select('*').order('createdAt', { ascending: false });
-      if (data) return data;
+      try {
+        const { data, error } = await supabase.from('leave_requests').select('*').order('createdAt', { ascending: false });
+        if (!error && data) return data;
+      } catch (e) { console.debug('Requests table fallback'); }
     }
-    const localData = localStorage.getItem('friendly_requests');
-    return localData ? JSON.parse(localData) : [];
+    return getLocal('friendly_requests');
   },
 
   async createRequest(request: LeaveRequest): Promise<void> {
@@ -97,48 +103,53 @@ export const dataService = {
     let initialStatus: Status = isSuperAdmin(currentUser?.email || '') ? 'APPROVED' : (currentUser?.role === 'ADMIN' ? 'PENDING_FINAL' : 'PENDING_PL');
     
     const finalRequest = { ...request, status: initialStatus };
-    if (isSupabaseConfigured) await supabase.from('leave_requests').insert([finalRequest]);
+    if (isSupabaseConfigured) {
+      try { await supabase.from('leave_requests').insert([finalRequest]); } catch (e) {}
+    }
     const reqs = await this.getRequests();
-    localStorage.setItem('friendly_requests', JSON.stringify([...reqs, finalRequest]));
-
+    setLocal('friendly_requests', [...reqs, finalRequest]);
     if (initialStatus === 'APPROVED') await this.handleApprovedLeave(finalRequest);
   },
 
   async handleApprovedLeave(req: LeaveRequest): Promise<void> {
     const days = calculateLeaveDays(req.type, req.startDate, req.endDate);
+    const users = await this.getUsers();
+    const user = users.find(u => u.id === req.userId);
+    if (!user) return;
+
     if (req.type === 'EXTRA_LEAVE') {
-      const users = await this.getUsers();
-      const user = users.find(u => u.id === req.userId);
-      if (user) await this.updateUser(user.id, { extraLeaveUsed: (user.extraLeaveUsed || 0) + days });
+      await this.updateUser(user.id, { extraLeaveUsed: (user.extraLeaveUsed || 0) + days });
     } else if (req.type === 'VACATION' || req.type === 'HALF_DAY') {
-      const users = await this.getUsers();
-      const user = users.find(u => u.id === req.userId);
-      if (user) await this.updateUser(user.id, { usedLeave: (user.usedLeave || 0) + days });
+      await this.updateUser(user.id, { usedLeave: (user.usedLeave || 0) + days });
     }
   },
 
   async updateRequestStatus(requestId: string, status: Status): Promise<void> {
     const reqs = await this.getRequests();
     const target = reqs.find(r => r.id === requestId);
-    if (isSupabaseConfigured) await supabase.from('leave_requests').update({ status }).eq('id', requestId);
-    localStorage.setItem('friendly_requests', JSON.stringify(reqs.map(r => r.id === requestId ? { ...r, status } : r)));
+    if (isSupabaseConfigured) {
+      try { await supabase.from('leave_requests').update({ status }).eq('id', requestId); } catch (e) {}
+    }
+    setLocal('friendly_requests', reqs.map(r => r.id === requestId ? { ...r, status } : r));
     if (status === 'APPROVED' && target) await this.handleApprovedLeave(target);
   },
 
   async getExtraWorkReports(): Promise<ExtraWorkReport[]> {
     if (isSupabaseConfigured) {
-      const { data } = await supabase.from('extra_work_reports').select('*').order('createdAt', { ascending: false });
-      if (data) return data;
+      try {
+        const { data, error } = await supabase.from('extra_work_reports').select('*').order('createdAt', { ascending: false });
+        if (!error && data) return data;
+      } catch (e) {}
     }
-    const localData = localStorage.getItem('friendly_extra_work');
-    return localData ? JSON.parse(localData) : [];
+    return getLocal('friendly_extra_work');
   },
 
   async createExtraWorkReport(report: ExtraWorkReport): Promise<void> {
-    if (isSupabaseConfigured) await supabase.from('extra_work_reports').insert([report]);
+    if (isSupabaseConfigured) {
+      try { await supabase.from('extra_work_reports').insert([report]); } catch (e) {}
+    }
     const reports = await this.getExtraWorkReports();
-    localStorage.setItem('friendly_extra_work', JSON.stringify([...reports, report]));
-    
+    setLocal('friendly_extra_work', [...reports, report]);
     await this.createNotification({
       id: `notif-extra-${Date.now()}`,
       userId: 'ADMIN',
@@ -154,9 +165,10 @@ export const dataService = {
   async updateExtraWorkStatus(reportId: string, status: Status): Promise<void> {
     const reports = await this.getExtraWorkReports();
     const target = reports.find(r => r.id === reportId);
-    if (isSupabaseConfigured) await supabase.from('extra_work_reports').update({ status }).eq('id', reportId);
-    localStorage.setItem('friendly_extra_work', JSON.stringify(reports.map(r => r.id === reportId ? { ...r, status } : r)));
-    
+    if (isSupabaseConfigured) {
+      try { await supabase.from('extra_work_reports').update({ status }).eq('id', reportId); } catch (e) {}
+    }
+    setLocal('friendly_extra_work', reports.map(r => r.id === reportId ? { ...r, status } : r));
     if (status === 'APPROVED' && target) {
       const users = await this.getUsers();
       const user = users.find(u => u.id === target.userId);
@@ -166,47 +178,54 @@ export const dataService = {
 
   async getMeetings(): Promise<Meeting[]> { 
     if (isSupabaseConfigured) {
-      const { data } = await supabase.from('meetings').select('*').order('startTime', { ascending: true });
-      if (data) return data;
+      try {
+        const { data, error } = await supabase.from('meetings').select('*').order('startTime', { ascending: true });
+        if (!error && data) return data;
+      } catch (e) {}
     }
-    const localData = localStorage.getItem('friendly_meetings');
-    return localData ? JSON.parse(localData) : [];
+    return getLocal('friendly_meetings');
   },
 
   async createMeeting(m: Meeting): Promise<void> { 
-    if (isSupabaseConfigured) await supabase.from('meetings').insert([m]);
+    if (isSupabaseConfigured) {
+      try { await supabase.from('meetings').insert([m]); } catch (e) {}
+    }
     const meetings = await this.getMeetings();
-    localStorage.setItem('friendly_meetings', JSON.stringify([...meetings, m]));
+    setLocal('friendly_meetings', [...meetings, m]);
   },
 
   async deleteMeeting(id: string): Promise<void> { 
-    if (isSupabaseConfigured) await supabase.from('meetings').delete().eq('id', id);
+    if (isSupabaseConfigured) {
+      try { await supabase.from('meetings').delete().eq('id', id); } catch (e) {}
+    }
     const meetings = await this.getMeetings();
-    localStorage.setItem('friendly_meetings', JSON.stringify(meetings.filter(m => m.id !== id)));
+    setLocal('friendly_meetings', meetings.filter(m => m.id !== id));
   },
 
   async getNotifications(id: string): Promise<Notification[]> { 
     if (isSupabaseConfigured) {
-      const { data } = await supabase.from('notifications').select('*').eq('userId', id).order('createdAt', { ascending: false });
-      if (data) return data;
+      try {
+        const { data, error } = await supabase.from('notifications').select('*').eq('userId', id).order('createdAt', { ascending: false });
+        if (!error && data) return data;
+      } catch (e) {}
     }
-    const localData = localStorage.getItem('friendly_notifications');
-    return (localData ? JSON.parse(localData) : []).filter((n: Notification) => n.userId === id || n.userId === 'ADMIN');
+    return getLocal('friendly_notifications').filter((n: Notification) => n.userId === id || n.userId === 'ADMIN');
   },
 
   async createNotification(n: Notification): Promise<void> { 
-    if (isSupabaseConfigured) await supabase.from('notifications').insert([n]);
-    const notifs = await this.getNotifications(n.userId);
-    localStorage.setItem('friendly_notifications', JSON.stringify([...notifs, n]));
+    if (isSupabaseConfigured) {
+      try { await supabase.from('notifications').insert([n]); } catch (e) {}
+    }
+    const localNotifs = getLocal('friendly_notifications');
+    setLocal('friendly_notifications', [...localNotifs, n]);
   },
 
   async markAsRead(id: string): Promise<void> { 
-    if (isSupabaseConfigured) await supabase.from('notifications').update({ isRead: true }).eq('id', id);
-    const localData = localStorage.getItem('friendly_notifications');
-    if (localData) {
-      const notifs = JSON.parse(localData);
-      localStorage.setItem('friendly_notifications', JSON.stringify(notifs.map((n: any) => n.id === id ? { ...n, isRead: true } : n)));
+    if (isSupabaseConfigured) {
+      try { await supabase.from('notifications').update({ isRead: true }).eq('id', id); } catch (e) {}
     }
+    const notifs = getLocal('friendly_notifications');
+    setLocal('friendly_notifications', notifs.map((n: any) => n.id === id ? { ...n, isRead: true } : n));
   },
 
   async findUserToReset(e: string, n: string): Promise<User | null> {
@@ -219,8 +238,10 @@ export const dataService = {
   },
 
   async deleteUser(id: string): Promise<void> { 
-    if (isSupabaseConfigured) await supabase.from('users').delete().eq('id', id);
+    if (isSupabaseConfigured) {
+      try { await supabase.from('users').delete().eq('id', id); } catch (e) {}
+    }
     const users = await this.getUsers();
-    localStorage.setItem('friendly_users', JSON.stringify(users.filter(u => u.id !== id)));
+    setLocal('friendly_users', users.filter(u => u.id !== id));
   }
 };

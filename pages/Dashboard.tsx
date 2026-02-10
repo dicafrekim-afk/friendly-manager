@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, LeaveRequest, LeaveType, Meeting } from '../types';
 import { dataService } from '../services/dataService';
@@ -17,32 +17,36 @@ const Dashboard: React.FC = () => {
   const [selectedDay, setSelectedDay] = useState<number | null>(new Date().getDate());
 
   const fetchData = async () => {
-    setLoading(true);
     const session = localStorage.getItem('friendly_current_session');
     if (session) setCurrentUser(JSON.parse(session));
+    
     try {
+      // dataService가 이제 내부적으로 에러를 잡으므로 안전하게 호출 가능
       const [reqs, users, meetings] = await Promise.all([
         dataService.getRequests(), 
         dataService.getUsers(),
         dataService.getMeetings()
       ]);
       
-      // 승인된 요청만 캘린더에 표시
       setAllRequests(reqs.filter(r => r.status === 'APPROVED' || r.status === 'PENDING_FINAL' || r.status === 'PENDING_PL'));
-      setAllMeetings(meetings);
+      setAllMeetings(meetings || []);
       
       if (session) {
         const u = JSON.parse(session);
         const freshUser = users.find(x => x.id === u.id);
         if (freshUser) setCurrentUser(freshUser);
       }
-    } catch (err) { console.error(err); }
-    setLoading(false);
+    } catch (err) { 
+      console.error('Dashboard data fetch failed, but continuing with local state.', err); 
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { 
+    fetchData(); 
+  }, []);
 
-  // 캘린더 로직
   const calendarDays = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -61,12 +65,12 @@ const Dashboard: React.FC = () => {
     setSelectedDay(null);
   };
 
-  const getEventsForDate = (day: number) => {
+  const getEventsForDate = useCallback((day: number) => {
     const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const dailyRequests = allRequests.filter(req => dateStr >= req.startDate && dateStr <= req.endDate);
-    const dailyMeetings = allMeetings.filter(m => m.startTime.startsWith(dateStr));
+    const dailyMeetings = (allMeetings || []).filter(m => m.startTime.startsWith(dateStr));
     return { requests: dailyRequests, meetings: dailyMeetings };
-  };
+  }, [currentDate, allRequests, allMeetings]);
 
   if (loading || !currentUser) return (
     <div className="flex items-center justify-center h-[60vh]">
@@ -128,7 +132,6 @@ const Dashboard: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* 캘린더 섹션 */}
         <div className="lg:col-span-2 bg-white p-8 md:p-10 rounded-[48px] shadow-sm border border-slate-100">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
             <h2 className="text-2xl font-black text-slate-900">월간 일정</h2>
@@ -158,13 +161,13 @@ const Dashboard: React.FC = () => {
               return (
                 <div 
                   key={idx} 
-                  onClick={() => day && setSelectedDay(day)}
+                  onClick={() => { if(day) setSelectedDay(day); }}
                   className={`min-h-[100px] md:min-h-[120px] bg-white p-2 md:p-3 group transition-all cursor-pointer relative ${!day ? 'bg-slate-50/30' : ''} ${isSelected ? 'ring-2 ring-inset ring-indigo-600 bg-indigo-50/20 z-10' : 'hover:bg-slate-50/50'}`}
                 >
                   {day && (
                     <>
                       <div className="flex justify-between items-center mb-1">
-                        <span className={`text-xs font-black ${isToday ? 'w-6 h-6 bg-indigo-600 text-white rounded-lg flex items-center justify-center' : isSelected ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-900'}`}>
+                        <span className={`text-xs font-black ${isToday ? 'w-6 h-6 bg-indigo-600 text-white rounded-lg flex items-center justify-center' : isSelected ? 'text-indigo-600 underline' : 'text-slate-400 group-hover:text-slate-900'}`}>
                           {day}
                         </span>
                       </div>
@@ -174,7 +177,7 @@ const Dashboard: React.FC = () => {
                             {req.userName}
                           </div>
                         ))}
-                        {meetings.slice(0, 1).map(m => (
+                        {(meetings || []).slice(0, 1).map(m => (
                           <div key={m.id} className="px-1.5 py-0.5 rounded text-[8px] font-bold truncate bg-slate-900 text-white">
                             📅 {m.title.split(']')[1] || m.title}
                           </div>
@@ -191,9 +194,8 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* 상세 일정 사이드바 */}
         <div className="lg:col-span-1 space-y-6">
-          <div className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 min-h-[400px]">
+          <div className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 min-h-[400px] sticky top-24">
             <div className="flex items-center gap-3 mb-8">
               <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
@@ -226,7 +228,7 @@ const Dashboard: React.FC = () => {
                         <div key={m.id} className="p-4 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-100">
                           <div className="flex justify-between items-start mb-2">
                              <span className="text-[10px] font-black uppercase tracking-widest opacity-80">Meeting</span>
-                             <span className="text-[9px] font-black bg-white/20 px-2 py-0.5 rounded">{m.startTime.split('T')[1].substring(0, 5)}</span>
+                             <span className="text-[9px] font-black bg-white/20 px-2 py-0.5 rounded">{m.startTime.split('T')[1]?.substring(0, 5)}</span>
                           </div>
                           <p className="text-xs font-black mb-1">{m.title}</p>
                           <p className="text-[9px] font-bold opacity-70 line-clamp-1">{m.description}</p>
