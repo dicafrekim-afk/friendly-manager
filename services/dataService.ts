@@ -34,10 +34,11 @@ const calculateLeaveDays = (type: LeaveType, startDate: string, endDate: string)
   return Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
 };
 
-// 공통 폴백 처리 함수
 const getLocal = (key: string) => {
-  const data = localStorage.getItem(key);
-  return data ? JSON.parse(data) : [];
+  try {
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : [];
+  } catch (e) { return []; }
 };
 
 const setLocal = (key: string, data: any) => {
@@ -50,7 +51,7 @@ export const dataService = {
       try {
         const { data, error } = await supabase.from('users').select('*').order('joinDate', { ascending: false });
         if (!error && data && data.length > 0) return data as User[];
-      } catch (e) { console.debug('Supabase Users Table not found, falling back to local.'); }
+      } catch (e) { console.debug('Users table not found/error'); }
     }
     let users = getLocal('friendly_users');
     if (users.length === 0) {
@@ -92,7 +93,7 @@ export const dataService = {
       try {
         const { data, error } = await supabase.from('leave_requests').select('*').order('createdAt', { ascending: false });
         if (!error && data) return data;
-      } catch (e) { console.debug('Requests table fallback'); }
+      } catch (e) { console.debug('Requests table error'); }
     }
     return getLocal('friendly_requests');
   },
