@@ -125,7 +125,6 @@ export const dataService = {
     if (status === 'APPROVED' && target) await this.handleApprovedLeave(target);
   },
 
-  // 추가 근무 보고 관련
   async getExtraWorkReports(): Promise<ExtraWorkReport[]> {
     if (isSupabaseConfigured) {
       const { data } = await supabase.from('extra_work_reports').select('*').order('createdAt', { ascending: false });
@@ -165,16 +164,63 @@ export const dataService = {
     }
   },
 
-  // 기존 미팅, 알림 등 생략 (동일 유지)
-  async deleteRequest(id: string): Promise<void> { /* 생략 */ },
-  async getMeetings(): Promise<Meeting[]> { return []; /* 생략 */ },
-  async createMeeting(m: Meeting): Promise<void> { /* 생략 */ },
-  async deleteMeeting(id: string): Promise<void> { /* 생략 */ },
-  async getNotifications(id: string): Promise<Notification[]> { return []; /* 생략 */ },
-  async createNotification(n: Notification): Promise<void> { /* 생략 */ },
-  async markAsRead(id: string): Promise<void> { /* 생략 */ },
-  async checkMeetingReminders(): Promise<void> { /* 생략 */ },
-  async findUserToReset(e: string, n: string): Promise<User | null> { return null; /* 생략 */ },
-  async updateUserStatus(id: string, s: any): Promise<void> { /* 생략 */ },
-  async deleteUser(id: string): Promise<void> { /* 생략 */ }
+  async getMeetings(): Promise<Meeting[]> { 
+    if (isSupabaseConfigured) {
+      const { data } = await supabase.from('meetings').select('*').order('startTime', { ascending: true });
+      if (data) return data;
+    }
+    const localData = localStorage.getItem('friendly_meetings');
+    return localData ? JSON.parse(localData) : [];
+  },
+
+  async createMeeting(m: Meeting): Promise<void> { 
+    if (isSupabaseConfigured) await supabase.from('meetings').insert([m]);
+    const meetings = await this.getMeetings();
+    localStorage.setItem('friendly_meetings', JSON.stringify([...meetings, m]));
+  },
+
+  async deleteMeeting(id: string): Promise<void> { 
+    if (isSupabaseConfigured) await supabase.from('meetings').delete().eq('id', id);
+    const meetings = await this.getMeetings();
+    localStorage.setItem('friendly_meetings', JSON.stringify(meetings.filter(m => m.id !== id)));
+  },
+
+  async getNotifications(id: string): Promise<Notification[]> { 
+    if (isSupabaseConfigured) {
+      const { data } = await supabase.from('notifications').select('*').eq('userId', id).order('createdAt', { ascending: false });
+      if (data) return data;
+    }
+    const localData = localStorage.getItem('friendly_notifications');
+    return (localData ? JSON.parse(localData) : []).filter((n: Notification) => n.userId === id || n.userId === 'ADMIN');
+  },
+
+  async createNotification(n: Notification): Promise<void> { 
+    if (isSupabaseConfigured) await supabase.from('notifications').insert([n]);
+    const notifs = await this.getNotifications(n.userId);
+    localStorage.setItem('friendly_notifications', JSON.stringify([...notifs, n]));
+  },
+
+  async markAsRead(id: string): Promise<void> { 
+    if (isSupabaseConfigured) await supabase.from('notifications').update({ isRead: true }).eq('id', id);
+    const localData = localStorage.getItem('friendly_notifications');
+    if (localData) {
+      const notifs = JSON.parse(localData);
+      localStorage.setItem('friendly_notifications', JSON.stringify(notifs.map((n: any) => n.id === id ? { ...n, isRead: true } : n)));
+    }
+  },
+
+  async findUserToReset(e: string, n: string): Promise<User | null> {
+    const users = await this.getUsers();
+    return users.find(u => u.email.toLowerCase().trim() === e.toLowerCase().trim() && u.name === n) || null;
+  },
+
+  async updateUserStatus(id: string, s: any): Promise<void> { 
+    await this.updateUser(id, { status: s });
+  },
+
+  async deleteUser(id: string): Promise<void> { 
+    if (isSupabaseConfigured) await supabase.from('users').delete().eq('id', id);
+    const users = await this.getUsers();
+    localStorage.setItem('friendly_users', JSON.stringify(users.filter(u => u.id !== id)));
+  }
 };
