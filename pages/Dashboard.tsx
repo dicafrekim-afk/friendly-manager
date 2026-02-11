@@ -156,7 +156,7 @@ const Dashboard: React.FC = () => {
       
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* 캘린더 영역 */}
-        <div className="lg:col-span-8 bg-white p-6 md:p-10 rounded-[40px] shadow-sm border border-slate-100">
+        <div className="lg:col-span-8 bg-white p-6 md:p-10 rounded-[40px] shadow-sm border border-slate-100 overflow-hidden">
           <div className="flex items-center justify-between mb-10">
             <h2 className="text-xl md:text-2xl font-black text-slate-900">팀 일정 캘린더</h2>
             <div className="flex items-center gap-4">
@@ -177,20 +177,48 @@ const Dashboard: React.FC = () => {
                 <div 
                   key={idx} 
                   onClick={() => day && setSelectedDay(day)}
-                  className={`min-h-[60px] md:min-h-[100px] p-2 rounded-2xl border transition-all cursor-pointer relative flex flex-col items-center justify-start ${
+                  className={`min-h-[70px] md:min-h-[120px] p-2 rounded-2xl border transition-all cursor-pointer relative flex flex-col items-center justify-start overflow-hidden ${
                     day ? (isSelected ? 'bg-indigo-50 border-indigo-200 ring-2 ring-indigo-100 shadow-inner' : 'bg-white border-transparent hover:border-slate-100') : 'bg-transparent border-transparent'
                   }`}
                 >
                   {day && (
                     <>
                       <span className={`text-[11px] font-black ${isToday ? 'bg-indigo-600 text-white w-6 h-6 flex items-center justify-center rounded-lg shadow-lg' : isSelected ? 'text-indigo-600' : 'text-slate-400'}`}>{day}</span>
-                      <div className="mt-2 flex flex-col gap-1 w-full overflow-hidden">
-                         {events.requests.slice(0, 2).map(req => (
-                           <div key={req.id} className="h-1.5 md:h-2 w-full rounded-full bg-indigo-400/30"></div>
-                         ))}
-                         {events.meetings.length > 0 && <div className="h-1.5 md:h-2 w-full rounded-full bg-emerald-400/30"></div>}
+                      
+                      {/* 이벤트 리스트: 모바일(막대) / PC(텍스트) */}
+                      <div className="mt-2 flex flex-col gap-1 w-full px-1">
+                        {/* 1. 휴가/출장 요청 */}
+                        {events.requests.slice(0, 3).map(req => (
+                          <div key={req.id} className="w-full">
+                            {/* 데스크톱용: 텍스트 레이블 */}
+                            <div className={`hidden md:block px-2 py-0.5 rounded-md border text-[8px] font-black truncate ${LEAVE_TYPE_COLORS[req.type]}`}>
+                              {LEAVE_TYPE_LABELS[req.type]} | {req.userName}
+                            </div>
+                            {/* 모바일용: 컬러 바 */}
+                            <div className={`md:hidden h-1 w-full rounded-full ${LEAVE_TYPE_COLORS[req.type].split(' ')[0] === 'bg-emerald-50' ? 'bg-emerald-400' : 
+                                              LEAVE_TYPE_COLORS[req.type].split(' ')[0] === 'bg-teal-50' ? 'bg-teal-400' :
+                                              LEAVE_TYPE_COLORS[req.type].split(' ')[0] === 'bg-blue-50' ? 'bg-blue-400' :
+                                              LEAVE_TYPE_COLORS[req.type].split(' ')[0] === 'bg-violet-50' ? 'bg-violet-400' : 'bg-indigo-400'}`}></div>
+                          </div>
+                        ))}
+                        
+                        {/* 2. 회의 일정 */}
+                        {events.meetings.slice(0, 1).map(meet => (
+                          <div key={meet.id} className="w-full">
+                            <div className="hidden md:block px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100 text-[8px] font-black truncate">
+                              회의 | {meet.title}
+                            </div>
+                            <div className="md:hidden h-1 w-full rounded-full bg-emerald-400"></div>
+                          </div>
+                        ))}
                       </div>
-                      {(events.requests.length > 2) && <span className="absolute bottom-1 right-2 text-[8px] font-black text-slate-300">+{events.requests.length - 2}</span>}
+
+                      {/* 추가 개수 표시 */}
+                      {(events.requests.length + events.meetings.length > 3) && (
+                        <span className="absolute bottom-1 right-2 text-[8px] font-black text-slate-300">
+                          +{events.requests.length + events.meetings.length - 3}
+                        </span>
+                      )}
                     </>
                   )}
                 </div>
