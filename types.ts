@@ -44,8 +44,10 @@ export interface ExtraWorkReport {
   userName: string;
   userTeam: Team;
   workDate: string;
+  workHours: number; // 근무 시간 추가
   workType: 'WEEKEND' | 'OVERTIME'; // 주말 또는 철야
   rewardAmount: number; // 보상 수량 (0.5 또는 1.0)
+  expiryDate: string; // 만료일 추가 (근무일 + 30일)
   reason: string;
   status: Status;
   createdAt: string;

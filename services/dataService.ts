@@ -125,6 +125,30 @@ export const dataService = {
     }
   },
 
+  async deleteRequest(requestId: string): Promise<void> {
+    const reqs = await this.getRequests();
+    const target = reqs.find(r => r.id === requestId);
+    
+    if (target && target.status === 'APPROVED') {
+       // 이미 승인된 건을 취소할 경우 연차 복구 로직
+       const days = calculateLeaveDays(target.type, target.startDate, target.endDate);
+       const users = await this.getUsers();
+       const user = users.find(u => u.id === target.userId);
+       if (user) {
+         if (target.type === 'EXTRA_LEAVE') {
+            await this.updateUser(user.id, { extraLeaveUsed: Math.max(0, (user.extraLeaveUsed || 0) - days) });
+         } else if (target.type === 'VACATION' || target.type === 'HALF_DAY') {
+            await this.updateUser(user.id, { usedLeave: Math.max(0, (user.usedLeave || 0) - days) });
+         }
+       }
+    }
+
+    if (isSupabaseConfigured) {
+      try { await supabase.from('leave_requests').delete().eq('id', requestId); } catch (e) {}
+    }
+    setLocal('friendly_requests', reqs.filter(r => r.id !== requestId));
+  },
+
   async updateRequestStatus(requestId: string, status: Status): Promise<void> {
     const reqs = await this.getRequests();
     const target = reqs.find(r => r.id === requestId);
