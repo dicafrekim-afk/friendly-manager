@@ -183,7 +183,7 @@ export const dataService = {
   async createExtraWorkReport(report: ExtraWorkReport): Promise<void> {
     if (isSupabaseConfigured) {
       try { 
-        // 1. Supabase 저장 시도
+        // 1. Supabase 저장 시도 (컬럼명을 명시적으로 지정하여 전송)
         const { error } = await supabase.from('extra_work_reports').insert([{
           id: report.id,
           userId: report.userId,
@@ -203,8 +203,8 @@ export const dataService = {
 
         if (error) {
           console.error("Supabase Insert Error Detail:", error);
-          alert(`DB 저장 실패: ${error.message}\n(상세: ${error.details || '없음'})`);
-          return; // 에러 시 이후 로직 중단
+          alert(`DB 저장 실패: ${error.message}\n(테이블 스키마에서 '${error.hint || '알 수 없는 컬럼'}'을 찾을 수 없는 것 같습니다. SQL 스크립트를 다시 실행해 주세요.)`);
+          return;
         }
       } catch (e: any) { 
         console.error("Extra Work Create Exception:", e); 
@@ -213,7 +213,7 @@ export const dataService = {
       }
     }
 
-    // 2. 로컬 스토리지 업데이트 및 알림 (DB 저장 성공 시에만)
+    // 2. 로컬 스토리지 업데이트 및 알림
     const currentLocal = getLocal('friendly_extra_work');
     setLocal('friendly_extra_work', [...currentLocal, report]);
     
