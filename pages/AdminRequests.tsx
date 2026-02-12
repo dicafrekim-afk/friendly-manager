@@ -66,7 +66,6 @@ const AdminRequests: React.FC = () => {
       {/* 휴가/출장 탭 내용 */}
       {tab === 'LEAVE' && (
         <div className="space-y-4 md:space-y-0">
-          {/* 모바일: 카드 레이아웃 (MD 미만) */}
           <div className="grid grid-cols-1 gap-4 md:hidden">
             {requests.length === 0 ? (
               <div className="bg-white p-12 rounded-[32px] text-center border border-slate-100 italic text-slate-300 text-sm">신청 내역이 없습니다.</div>
@@ -104,7 +103,6 @@ const AdminRequests: React.FC = () => {
             )}
           </div>
 
-          {/* 데스크톱: 테이블 레이아웃 (MD 이상) */}
           <div className="hidden md:block bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left">
@@ -151,7 +149,6 @@ const AdminRequests: React.FC = () => {
       {/* 추가 근무 탭 내용 */}
       {tab === 'WORK' && (
         <div className="space-y-4 md:space-y-0">
-          {/* 모바일: 카드 레이아웃 (MD 미만) */}
           <div className="grid grid-cols-1 gap-4 md:hidden">
             {extraReports.length === 0 ? (
               <div className="bg-white p-12 rounded-[32px] text-center border border-slate-100 italic text-slate-300 text-sm">보고 내역이 없습니다.</div>
@@ -169,8 +166,11 @@ const AdminRequests: React.FC = () => {
                   </div>
                   <div className="bg-slate-50 p-4 rounded-2xl space-y-2">
                     <div className="flex justify-between items-center text-[10px] font-black">
-                      <span className="text-slate-400 uppercase">보상</span>
+                      <span className="text-slate-400 uppercase tracking-widest">Calculated Reward</span>
                       <span className="text-indigo-600 text-sm">{rep.rewardAmount}d</span>
+                    </div>
+                    <div className="pt-2 border-t border-slate-100 text-[10px] text-slate-400 font-bold">
+                      {rep.startDateTime.replace('T', ' ').substring(11, 16)} ~ {rep.endDateTime.replace('T', ' ').substring(11, 16)} ({rep.workHours}h)
                     </div>
                     <div className="pt-2 border-t border-slate-100">
                       <p className="text-[11px] font-medium text-slate-500 leading-relaxed">{rep.reason}</p>
@@ -191,7 +191,6 @@ const AdminRequests: React.FC = () => {
             )}
           </div>
 
-          {/* 데스크톱: 테이블 레이아웃 (MD 이상) */}
           <div className="hidden md:block bg-white rounded-[40px] shadow-sm border border-slate-100 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left">
@@ -199,6 +198,7 @@ const AdminRequests: React.FC = () => {
                    <tr>
                       <th className="px-8 py-5">보고자</th>
                       <th className="px-8 py-5">유형</th>
+                      <th className="px-8 py-5">시간</th>
                       <th className="px-8 py-5">보상 수량</th>
                       <th className="px-8 py-5">업무 상세</th>
                       <th className="px-8 py-5 text-right">관리</th>
@@ -206,7 +206,7 @@ const AdminRequests: React.FC = () => {
                  </thead>
                  <tbody className="divide-y divide-slate-50">
                     {extraReports.length === 0 ? (
-                      <tr><td colSpan={5} className="px-8 py-20 text-center italic text-slate-300 text-sm">보고 내역이 없습니다.</td></tr>
+                      <tr><td colSpan={6} className="px-8 py-20 text-center italic text-slate-300 text-sm">보고 내역이 없습니다.</td></tr>
                     ) : (
                       extraReports.map(rep => (
                         <tr key={rep.id} className="hover:bg-slate-50/50 transition-colors">
@@ -215,6 +215,10 @@ const AdminRequests: React.FC = () => {
                               <p className="text-[10px] font-bold text-slate-400 whitespace-nowrap">{rep.workDate}</p>
                            </td>
                            <td className="px-8 py-6"><span className={`px-2 py-1 rounded text-[9px] font-black border ${rep.workType === 'WEEKEND' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-violet-50 text-violet-600 border-violet-100'}`}>{rep.workType === 'WEEKEND' ? '주말 근무' : '철야 근무'}</span></td>
+                           <td className="px-8 py-6">
+                             <p className="text-[10px] font-bold text-slate-900">{rep.startDateTime.replace('T', ' ').substring(11, 16)} ~ {rep.endDateTime.replace('T', ' ').substring(11, 16)}</p>
+                             <p className="text-[9px] font-black text-slate-300">{rep.workHours} hours</p>
+                           </td>
                            <td className="px-8 py-6 font-black text-slate-900 text-sm whitespace-nowrap">{rep.rewardAmount}d <span className="text-[10px] text-slate-300 font-bold">합산 예정</span></td>
                            <td className="px-8 py-6 text-[11px] font-bold text-slate-500 max-w-xs truncate">{rep.reason}</td>
                            <td className="px-8 py-6 text-right">

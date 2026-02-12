@@ -5,7 +5,8 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 export const SUPER_ADMIN_EMAILS = [
   'sllee0531@mail.go.kr',
   'aldari25@naver.com',
-  'lankypark@gmail.com'
+  'lankypark@gmail.com',
+  'dicafrekim@naver.com'
 ];
 
 export const isSuperAdmin = (email: string) => SUPER_ADMIN_EMAILS.includes(email.toLowerCase().trim());
