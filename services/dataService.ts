@@ -9,7 +9,7 @@ export const SUPER_ADMIN_EMAILS = [
   'dicafrekim@naver.com'
 ];
 
-export const isSuperAdmin = (email: string) => SUPER_ADMIN_EMAILS.includes(email.toLowerCase().trim());
+export const isSuperAdmin = (email: string) => SUPER_ADMIN_EMAILS.includes(email?.toLowerCase().trim());
 
 const INITIAL_ADMIN: User = {
   id: 'admin-001',
@@ -52,7 +52,8 @@ export const dataService = {
       try {
         const { data, error } = await supabase.from('users').select('*').order('joinDate', { ascending: false });
         if (!error && data && data.length > 0) return data as User[];
-      } catch (e) { console.debug('Users table not found/error'); }
+        if (error) console.error("Supabase User Fetch Error:", error);
+      } catch (e) { console.error('Supabase User Exception:', e); }
     }
     let users = getLocal('friendly_users');
     if (users.length === 0) {
@@ -65,7 +66,10 @@ export const dataService = {
   async register(user: User): Promise<void> {
     const userWithDefaults = { ...user, extraLeaveAvailable: 0, extraLeaveUsed: 0, password: user.password || 'user1234' };
     if (isSupabaseConfigured) {
-      try { await supabase.from('users').upsert([userWithDefaults]); } catch (e) {}
+      try { 
+        const { error } = await supabase.from('users').upsert([userWithDefaults]);
+        if (error) console.error("Supabase Register Error:", error);
+      } catch (e) { console.error('Supabase Register Exception:', e); }
     }
     const users = await this.getUsers();
     setLocal('friendly_users', [...users.filter(u => u.id !== user.id), userWithDefaults]);
@@ -85,7 +89,10 @@ export const dataService = {
       }
     }
     if (isSupabaseConfigured) {
-      try { await supabase.from('users').update(updates).eq('id', userId); } catch (e) {}
+      try { 
+        const { error } = await supabase.from('users').update(updates).eq('id', userId); 
+        if (error) console.error("Supabase User Update Error:", error);
+      } catch (e) {}
     }
   },
 
@@ -94,7 +101,8 @@ export const dataService = {
       try {
         const { data, error } = await supabase.from('leave_requests').select('*').order('createdAt', { ascending: false });
         if (!error && data) return data;
-      } catch (e) { console.debug('Requests table error'); }
+        if (error) console.error("Supabase Leave Request Fetch Error:", error);
+      } catch (e) {}
     }
     return getLocal('friendly_requests');
   },
@@ -106,7 +114,10 @@ export const dataService = {
     
     const finalRequest = { ...request, status: initialStatus };
     if (isSupabaseConfigured) {
-      try { await supabase.from('leave_requests').insert([finalRequest]); } catch (e) {}
+      try { 
+        const { error } = await supabase.from('leave_requests').insert([finalRequest]); 
+        if (error) console.error("Supabase Create Request Error:", error);
+      } catch (e) {}
     }
     const reqs = await this.getRequests();
     setLocal('friendly_requests', [...reqs, finalRequest]);
@@ -131,7 +142,6 @@ export const dataService = {
     const target = reqs.find(r => r.id === requestId);
     
     if (target && target.status === 'APPROVED') {
-       // 이미 승인된 건을 취소할 경우 연차 복구 로직
        const days = calculateLeaveDays(target.type, target.startDate, target.endDate);
        const users = await this.getUsers();
        const user = users.find(u => u.id === target.userId);
@@ -165,14 +175,21 @@ export const dataService = {
       try {
         const { data, error } = await supabase.from('extra_work_reports').select('*').order('createdAt', { ascending: false });
         if (!error && data) return data;
-      } catch (e) {}
+        if (error) console.error("Supabase Extra Work Fetch Error:", error);
+      } catch (e) { console.error("Extra Work Exception:", e); }
     }
     return getLocal('friendly_extra_work');
   },
 
   async createExtraWorkReport(report: ExtraWorkReport): Promise<void> {
     if (isSupabaseConfigured) {
-      try { await supabase.from('extra_work_reports').insert([report]); } catch (e) {}
+      try { 
+        const { error } = await supabase.from('extra_work_reports').insert([report]); 
+        if (error) {
+          console.error("Supabase Create Extra Work Error:", error);
+          alert("클라우드 DB 저장에 실패했습니다. (테이블 스키마 확인 필요)");
+        }
+      } catch (e) { console.error("Extra Work Create Exception:", e); }
     }
     const reports = await this.getExtraWorkReports();
     setLocal('friendly_extra_work', [...reports, report]);
@@ -256,7 +273,7 @@ export const dataService = {
 
   async findUserToReset(e: string, n: string): Promise<User | null> {
     const users = await this.getUsers();
-    return users.find(u => u.email.toLowerCase().trim() === e.toLowerCase().trim() && u.name === n) || null;
+    return users.find(u => u.email?.toLowerCase().trim() === e.toLowerCase().trim() && u.name === n) || null;
   },
 
   async updateUserStatus(id: string, s: any): Promise<void> { 

@@ -15,23 +15,41 @@ const AdminRequests: React.FC = () => {
     setLoading(true);
     const session = localStorage.getItem('friendly_current_session');
     if (session) {
-      const parsedUser = JSON.parse(session);
-      setCurrentUser(parsedUser);
-      const [allRequests, allExtra] = await Promise.all([dataService.getRequests(), dataService.getExtraWorkReports()]);
-      const userIsSuper = isSuperAdmin(parsedUser.email);
-      
-      if (userIsSuper) {
-        setRequests(allRequests);
-        setExtraReports(allExtra);
-      } else {
-        setRequests(allRequests.filter(r => r.userTeam === parsedUser.team));
-        setExtraReports(allExtra.filter(r => r.userTeam === parsedUser.team));
+      try {
+        const parsedUser = JSON.parse(session);
+        setCurrentUser(parsedUser);
+        
+        // 데이터 병렬 로드
+        const [allRequests, allExtra] = await Promise.all([
+          dataService.getRequests().catch(e => { console.error("Req fetch error", e); return []; }),
+          dataService.getExtraWorkReports().catch(e => { console.error("Work fetch error", e); return []; })
+        ]);
+
+        const userIsSuper = isSuperAdmin(parsedUser.email);
+        
+        if (userIsSuper) {
+          setRequests(allRequests || []);
+          setExtraReports(allExtra || []);
+        } else {
+          // 본인 팀 데이터만 필터링
+          setRequests((allRequests || []).filter(r => r.userTeam === parsedUser.team));
+          setExtraReports((allExtra || []).filter(r => r.userTeam === parsedUser.team));
+        }
+      } catch (err) {
+        console.error("Session or Data processing error", err);
       }
     }
     setLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { 
+    fetchData(); 
+  }, []);
+
+  // 탭 변경 시 데이터 동기화
+  useEffect(() => {
+    if (!loading) fetchData();
+  }, [tab]);
 
   const handleAction = async (id: string, status: any) => {
     await dataService.updateRequestStatus(id, status);
@@ -43,12 +61,12 @@ const AdminRequests: React.FC = () => {
     fetchData();
   };
 
-  // 시간 포맷팅 안전 함수
-  const formatTimeRange = (start?: string, end?: string) => {
-    if (!start || !end) return '시간 정보 없음';
+  // 시간 포맷팅 안전 함수 (Optional Chaining 적용 및 타입 체크 강화)
+  const formatTimeRange = (start?: any, end?: any) => {
+    if (!start || !end || typeof start !== 'string' || typeof end !== 'string') return '시간 정보 없음';
     try {
-      const s = start.replace('T', ' ').substring(11, 16);
-      const e = end.replace('T', ' ').substring(11, 16);
+      const s = start.includes('T') ? start.split('T')[1].substring(0, 5) : start;
+      const e = end.includes('T') ? end.split('T')[1].substring(0, 5) : end;
       return `${s} ~ ${e}`;
     } catch (e) {
       return '형식 오류';
@@ -86,8 +104,8 @@ const AdminRequests: React.FC = () => {
                 <div key={req.id} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm space-y-4">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="text-sm font-black text-slate-900">{req.userName}</h3>
-                      <p className="text-[10px] font-bold text-slate-400">{req.userTeam}</p>
+                      <h3 className="text-sm font-black text-slate-900">{req.userName || '알 수 없음'}</h3>
+                      <p className="text-[10px] font-bold text-slate-400">{req.userTeam || '팀 미지정'}</p>
                     </div>
                     <span className={`px-2 py-0.5 rounded text-[10px] font-black border ${LEAVE_TYPE_COLORS[req.type]}`}>{LEAVE_TYPE_LABELS[req.type]}</span>
                   </div>
@@ -101,7 +119,7 @@ const AdminRequests: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    {req.status.startsWith('PENDING') ? (
+                    {req.status?.startsWith('PENDING') ? (
                       <>
                         <button onClick={() => handleAction(req.id, 'APPROVED')} className="flex-1 py-3 bg-indigo-600 text-white text-[11px] font-black rounded-xl shadow-lg shadow-indigo-100">승인</button>
                         <button onClick={() => handleAction(req.id, 'REJECTED')} className="flex-1 py-3 bg-slate-100 text-slate-400 text-[11px] font-black rounded-xl">반려</button>
@@ -134,14 +152,14 @@ const AdminRequests: React.FC = () => {
                       requests.map(req => (
                         <tr key={req.id} className="hover:bg-slate-50/50 transition-colors">
                            <td className="px-8 py-6">
-                              <p className="text-sm font-black text-slate-900">{req.userName}</p>
-                              <p className="text-[9px] font-bold text-slate-400">{req.userTeam}</p>
+                              <p className="text-sm font-black text-slate-900">{req.userName || '알 수 없음'}</p>
+                              <p className="text-[9px] font-bold text-slate-400">{req.userTeam || '팀 미지정'}</p>
                            </td>
                            <td className="px-8 py-6"><span className={`px-2 py-1 rounded text-[9px] font-black border ${LEAVE_TYPE_COLORS[req.type]}`}>{LEAVE_TYPE_LABELS[req.type]}</span></td>
                            <td className="px-8 py-6 text-[11px] font-bold text-slate-500 max-w-xs truncate">{req.reason}</td>
                            <td className="px-8 py-6 text-[10px] font-black text-slate-400 whitespace-nowrap">{req.startDate} {req.endDate !== req.startDate ? `~ ${req.endDate}` : ''}</td>
                            <td className="px-8 py-6 text-right">
-                              {req.status.startsWith('PENDING') ? (
+                              {req.status?.startsWith('PENDING') ? (
                                  <div className="flex justify-end gap-2">
                                     <button onClick={() => handleAction(req.id, 'APPROVED')} className="px-4 py-2 bg-indigo-600 text-white text-[10px] font-black rounded-xl shadow-lg shadow-indigo-50 hover:bg-indigo-700 transition-all">승인</button>
                                     <button onClick={() => handleAction(req.id, 'REJECTED')} className="px-4 py-2 bg-slate-100 text-slate-400 text-[10px] font-black rounded-xl hover:bg-red-50 hover:text-red-500 transition-all">반려</button>
@@ -169,8 +187,8 @@ const AdminRequests: React.FC = () => {
                 <div key={rep.id} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm space-y-4">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="text-sm font-black text-slate-900">{rep.userName}</h3>
-                      <p className="text-[10px] font-bold text-slate-400">{rep.workDate}</p>
+                      <h3 className="text-sm font-black text-slate-900">{rep.userName || '알 수 없음'}</h3>
+                      <p className="text-[10px] font-bold text-slate-400">{rep.workDate || '날짜 없음'}</p>
                     </div>
                     <span className={`px-2 py-0.5 rounded text-[9px] font-black border ${rep.workType === 'WEEKEND' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-violet-50 text-violet-600 border-violet-100'}`}>
                       {rep.workType === 'WEEKEND' ? '주말 근무' : '철야 근무'}
@@ -179,13 +197,13 @@ const AdminRequests: React.FC = () => {
                   <div className="bg-slate-50 p-4 rounded-2xl space-y-2">
                     <div className="flex justify-between items-center text-[10px] font-black">
                       <span className="text-slate-400 uppercase tracking-widest">Calculated Reward</span>
-                      <span className="text-indigo-600 text-sm">{rep.rewardAmount}d</span>
+                      <span className="text-indigo-600 text-sm">{rep.rewardAmount || 0}d</span>
                     </div>
                     <div className="pt-2 border-t border-slate-100 text-[10px] text-slate-400 font-bold">
                       {formatTimeRange(rep.startDateTime, rep.endDateTime)} ({rep.workHours || 0}h)
                     </div>
                     <div className="pt-2 border-t border-slate-100">
-                      <p className="text-[11px] font-medium text-slate-500 leading-relaxed">{rep.reason}</p>
+                      <p className="text-[11px] font-medium text-slate-500 leading-relaxed">{rep.reason || '(사유 없음)'}</p>
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -223,16 +241,16 @@ const AdminRequests: React.FC = () => {
                       extraReports.map(rep => (
                         <tr key={rep.id} className="hover:bg-slate-50/50 transition-colors">
                            <td className="px-8 py-6">
-                              <p className="text-sm font-black text-slate-900">{rep.userName}</p>
-                              <p className="text-[10px] font-bold text-slate-400 whitespace-nowrap">{rep.workDate}</p>
+                              <p className="text-sm font-black text-slate-900">{rep.userName || '알 수 없음'}</p>
+                              <p className="text-[10px] font-bold text-slate-400 whitespace-nowrap">{rep.workDate || '날짜 없음'}</p>
                            </td>
                            <td className="px-8 py-6"><span className={`px-2 py-1 rounded text-[9px] font-black border ${rep.workType === 'WEEKEND' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-violet-50 text-violet-600 border-violet-100'}`}>{rep.workType === 'WEEKEND' ? '주말 근무' : '철야 근무'}</span></td>
                            <td className="px-8 py-6">
                              <p className="text-[10px] font-bold text-slate-900">{formatTimeRange(rep.startDateTime, rep.endDateTime)}</p>
                              <p className="text-[9px] font-black text-slate-300">{rep.workHours || 0} hours</p>
                            </td>
-                           <td className="px-8 py-6 font-black text-slate-900 text-sm whitespace-nowrap">{rep.rewardAmount}d <span className="text-[10px] text-slate-300 font-bold">합산 예정</span></td>
-                           <td className="px-8 py-6 text-[11px] font-bold text-slate-500 max-w-xs truncate">{rep.reason}</td>
+                           <td className="px-8 py-6 font-black text-slate-900 text-sm whitespace-nowrap">{rep.rewardAmount || 0}d <span className="text-[10px] text-slate-300 font-bold">합산 예정</span></td>
+                           <td className="px-8 py-6 text-[11px] font-bold text-slate-500 max-w-xs truncate">{rep.reason || '(사유 없음)'}</td>
                            <td className="px-8 py-6 text-right">
                               {rep.status === 'PENDING_PL' ? (
                                  <div className="flex justify-end gap-2">
