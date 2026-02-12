@@ -43,6 +43,18 @@ const AdminRequests: React.FC = () => {
     fetchData();
   };
 
+  // 시간 포맷팅 안전 함수
+  const formatTimeRange = (start?: string, end?: string) => {
+    if (!start || !end) return '시간 정보 없음';
+    try {
+      const s = start.replace('T', ' ').substring(11, 16);
+      const e = end.replace('T', ' ').substring(11, 16);
+      return `${s} ~ ${e}`;
+    } catch (e) {
+      return '형식 오류';
+    }
+  };
+
   if (loading || !currentUser) return (
     <div className="flex items-center justify-center h-[60vh]">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
@@ -170,7 +182,7 @@ const AdminRequests: React.FC = () => {
                       <span className="text-indigo-600 text-sm">{rep.rewardAmount}d</span>
                     </div>
                     <div className="pt-2 border-t border-slate-100 text-[10px] text-slate-400 font-bold">
-                      {rep.startDateTime.replace('T', ' ').substring(11, 16)} ~ {rep.endDateTime.replace('T', ' ').substring(11, 16)} ({rep.workHours}h)
+                      {formatTimeRange(rep.startDateTime, rep.endDateTime)} ({rep.workHours || 0}h)
                     </div>
                     <div className="pt-2 border-t border-slate-100">
                       <p className="text-[11px] font-medium text-slate-500 leading-relaxed">{rep.reason}</p>
@@ -216,8 +228,8 @@ const AdminRequests: React.FC = () => {
                            </td>
                            <td className="px-8 py-6"><span className={`px-2 py-1 rounded text-[9px] font-black border ${rep.workType === 'WEEKEND' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-violet-50 text-violet-600 border-violet-100'}`}>{rep.workType === 'WEEKEND' ? '주말 근무' : '철야 근무'}</span></td>
                            <td className="px-8 py-6">
-                             <p className="text-[10px] font-bold text-slate-900">{rep.startDateTime.replace('T', ' ').substring(11, 16)} ~ {rep.endDateTime.replace('T', ' ').substring(11, 16)}</p>
-                             <p className="text-[9px] font-black text-slate-300">{rep.workHours} hours</p>
+                             <p className="text-[10px] font-bold text-slate-900">{formatTimeRange(rep.startDateTime, rep.endDateTime)}</p>
+                             <p className="text-[9px] font-black text-slate-300">{rep.workHours || 0} hours</p>
                            </td>
                            <td className="px-8 py-6 font-black text-slate-900 text-sm whitespace-nowrap">{rep.rewardAmount}d <span className="text-[10px] text-slate-300 font-bold">합산 예정</span></td>
                            <td className="px-8 py-6 text-[11px] font-bold text-slate-500 max-w-xs truncate">{rep.reason}</td>
