@@ -101,7 +101,6 @@ export const dataService = {
       try {
         const { data, error } = await supabase.from('leave_requests').select('*').order('createdAt', { ascending: false });
         if (!error && data) return data;
-        if (error) console.error("Supabase Leave Request Fetch Error:", error);
       } catch (e) {}
     }
     return getLocal('friendly_requests');
@@ -182,35 +181,39 @@ export const dataService = {
   },
 
   async createExtraWorkReport(report: ExtraWorkReport): Promise<void> {
-    // Supabase에 명시적으로 필드 매핑하여 전송 (SQL 컬럼명 대소문자 주의)
-    const payload = {
-      id: report.id,
-      userId: report.userId,
-      userName: report.userName,
-      userTeam: report.userTeam,
-      workDate: report.workDate,
-      startDateTime: report.startDateTime,
-      endDateTime: report.endDateTime,
-      workHours: report.workHours,
-      workType: report.workType,
-      rewardAmount: report.rewardAmount,
-      expiryDate: report.expiryDate,
-      reason: report.reason,
-      status: report.status,
-      createdAt: report.createdAt
-    };
-
     if (isSupabaseConfigured) {
       try { 
-        const { error } = await supabase.from('extra_work_reports').insert([payload]); 
+        // 1. Supabase 저장 시도
+        const { error } = await supabase.from('extra_work_reports').insert([{
+          id: report.id,
+          userId: report.userId,
+          userName: report.userName,
+          userTeam: report.userTeam,
+          workDate: report.workDate,
+          startDateTime: report.startDateTime,
+          endDateTime: report.endDateTime,
+          workHours: report.workHours,
+          workType: report.workType,
+          rewardAmount: report.rewardAmount,
+          expiryDate: report.expiryDate,
+          reason: report.reason,
+          status: report.status,
+          createdAt: report.createdAt
+        }]); 
+
         if (error) {
-          console.error("Supabase Create Extra Work Error:", error);
-          alert("클라우드 DB 저장에 실패했습니다. (테이블 스키마 확인 필요)");
+          console.error("Supabase Insert Error Detail:", error);
+          alert(`DB 저장 실패: ${error.message}\n(상세: ${error.details || '없음'})`);
+          return; // 에러 시 이후 로직 중단
         }
-      } catch (e) { console.error("Extra Work Create Exception:", e); }
+      } catch (e: any) { 
+        console.error("Extra Work Create Exception:", e); 
+        alert(`시스템 예외 발생: ${e.message}`);
+        return;
+      }
     }
 
-    // 로컬 스토리지 업데이트 및 알림
+    // 2. 로컬 스토리지 업데이트 및 알림 (DB 저장 성공 시에만)
     const currentLocal = getLocal('friendly_extra_work');
     setLocal('friendly_extra_work', [...currentLocal, report]);
     
