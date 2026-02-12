@@ -25,13 +25,15 @@ const AdminRequests: React.FC = () => {
           dataService.getExtraWorkReports().catch(e => { console.error("Work fetch error", e); return []; })
         ]);
 
-        const userIsSuper = isSuperAdmin(parsedUser.email);
+        // 권한 확인: 최고관리자이거나 일반 관리자(ADMIN)인 경우 모든 데이터 표시
+        const hasFullAccess = isSuperAdmin(parsedUser.email) || parsedUser.role === 'ADMIN';
         
-        if (userIsSuper) {
+        if (hasFullAccess) {
           setRequests(allRequests || []);
           setExtraReports(allExtra || []);
+          console.log("Admin Access: Showing all data", { reqs: allRequests?.length, extra: allExtra?.length });
         } else {
-          // 본인 팀 데이터만 필터링
+          // 일반 사용자인 경우 (거의 없겠지만 방어코드) 본인 팀 데이터만 필터링
           setRequests((allRequests || []).filter(r => r.userTeam === parsedUser.team));
           setExtraReports((allExtra || []).filter(r => r.userTeam === parsedUser.team));
         }
@@ -46,10 +48,11 @@ const AdminRequests: React.FC = () => {
     fetchData(); 
   }, []);
 
-  // 탭 변경 시 데이터 동기화
-  useEffect(() => {
-    if (!loading) fetchData();
-  }, [tab]);
+  // 탭 변경 시 데이터를 다시 한번 확인
+  const handleTabChange = (newTab: 'LEAVE' | 'WORK') => {
+    setTab(newTab);
+    fetchData(); // 탭 전환 시 신선한 데이터 로드
+  };
 
   const handleAction = async (id: string, status: any) => {
     await dataService.updateRequestStatus(id, status);
@@ -61,7 +64,7 @@ const AdminRequests: React.FC = () => {
     fetchData();
   };
 
-  // 시간 포맷팅 안전 함수 (Optional Chaining 적용 및 타입 체크 강화)
+  // 시간 포맷팅 안전 함수
   const formatTimeRange = (start?: any, end?: any) => {
     if (!start || !end || typeof start !== 'string' || typeof end !== 'string') return '시간 정보 없음';
     try {
@@ -88,8 +91,8 @@ const AdminRequests: React.FC = () => {
            <p className="text-xs md:text-sm font-bold text-slate-400 mt-1">팀원들의 모든 요청을 실시간으로 관리하세요.</p>
         </div>
         <div className="flex bg-slate-100 p-1.5 rounded-[22px] shadow-inner w-full lg:w-auto overflow-x-auto scrollbar-hide">
-           <button onClick={() => setTab('LEAVE')} className={`flex-1 lg:flex-none px-6 py-3 rounded-2xl text-[11px] font-black transition-all whitespace-nowrap ${tab === 'LEAVE' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>휴가/출장 ({requests.length})</button>
-           <button onClick={() => setTab('WORK')} className={`flex-1 lg:flex-none px-6 py-3 rounded-2xl text-[11px] font-black transition-all whitespace-nowrap ${tab === 'WORK' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>추가 근무 ({extraReports.length})</button>
+           <button onClick={() => handleTabChange('LEAVE')} className={`flex-1 lg:flex-none px-6 py-3 rounded-2xl text-[11px] font-black transition-all whitespace-nowrap ${tab === 'LEAVE' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>휴가/출장 ({requests.length})</button>
+           <button onClick={() => handleTabChange('WORK')} className={`flex-1 lg:flex-none px-6 py-3 rounded-2xl text-[11px] font-black transition-all whitespace-nowrap ${tab === 'WORK' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>추가 근무 ({extraReports.length})</button>
         </div>
       </div>
 
@@ -98,7 +101,10 @@ const AdminRequests: React.FC = () => {
         <div className="space-y-4 md:space-y-0">
           <div className="grid grid-cols-1 gap-4 md:hidden">
             {requests.length === 0 ? (
-              <div className="bg-white p-12 rounded-[32px] text-center border border-slate-100 italic text-slate-300 text-sm">신청 내역이 없습니다.</div>
+              <div className="bg-white p-12 rounded-[32px] text-center border border-slate-100 italic text-slate-300 text-sm">
+                신청 내역이 없습니다.
+                <button onClick={fetchData} className="block mx-auto mt-4 text-indigo-600 font-black text-xs underline">새로고침</button>
+              </div>
             ) : (
               requests.map(req => (
                 <div key={req.id} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm space-y-4">
@@ -147,7 +153,12 @@ const AdminRequests: React.FC = () => {
                  </thead>
                  <tbody className="divide-y divide-slate-50">
                     {requests.length === 0 ? (
-                      <tr><td colSpan={5} className="px-8 py-20 text-center italic text-slate-300 text-sm">신청 내역이 없습니다.</td></tr>
+                      <tr>
+                        <td colSpan={5} className="px-8 py-20 text-center italic text-slate-300 text-sm">
+                          신청 내역이 없습니다.
+                          <button onClick={fetchData} className="ml-4 text-indigo-600 font-black underline">새로고침</button>
+                        </td>
+                      </tr>
                     ) : (
                       requests.map(req => (
                         <tr key={req.id} className="hover:bg-slate-50/50 transition-colors">
@@ -181,7 +192,10 @@ const AdminRequests: React.FC = () => {
         <div className="space-y-4 md:space-y-0">
           <div className="grid grid-cols-1 gap-4 md:hidden">
             {extraReports.length === 0 ? (
-              <div className="bg-white p-12 rounded-[32px] text-center border border-slate-100 italic text-slate-300 text-sm">보고 내역이 없습니다.</div>
+              <div className="bg-white p-12 rounded-[32px] text-center border border-slate-100 italic text-slate-300 text-sm">
+                보고 내역이 없습니다.
+                <button onClick={fetchData} className="block mx-auto mt-4 text-indigo-600 font-black text-xs underline">새로고침</button>
+              </div>
             ) : (
               extraReports.map(rep => (
                 <div key={rep.id} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm space-y-4">
@@ -236,7 +250,12 @@ const AdminRequests: React.FC = () => {
                  </thead>
                  <tbody className="divide-y divide-slate-50">
                     {extraReports.length === 0 ? (
-                      <tr><td colSpan={6} className="px-8 py-20 text-center italic text-slate-300 text-sm">보고 내역이 없습니다.</td></tr>
+                      <tr>
+                        <td colSpan={6} className="px-8 py-20 text-center italic text-slate-300 text-sm">
+                          보고 내역이 없습니다.
+                          <button onClick={fetchData} className="ml-4 text-indigo-600 font-black underline">새로고침</button>
+                        </td>
+                      </tr>
                     ) : (
                       extraReports.map(rep => (
                         <tr key={rep.id} className="hover:bg-slate-50/50 transition-colors">

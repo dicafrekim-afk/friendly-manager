@@ -182,17 +182,38 @@ export const dataService = {
   },
 
   async createExtraWorkReport(report: ExtraWorkReport): Promise<void> {
+    // Supabase에 명시적으로 필드 매핑하여 전송 (SQL 컬럼명 대소문자 주의)
+    const payload = {
+      id: report.id,
+      userId: report.userId,
+      userName: report.userName,
+      userTeam: report.userTeam,
+      workDate: report.workDate,
+      startDateTime: report.startDateTime,
+      endDateTime: report.endDateTime,
+      workHours: report.workHours,
+      workType: report.workType,
+      rewardAmount: report.rewardAmount,
+      expiryDate: report.expiryDate,
+      reason: report.reason,
+      status: report.status,
+      createdAt: report.createdAt
+    };
+
     if (isSupabaseConfigured) {
       try { 
-        const { error } = await supabase.from('extra_work_reports').insert([report]); 
+        const { error } = await supabase.from('extra_work_reports').insert([payload]); 
         if (error) {
           console.error("Supabase Create Extra Work Error:", error);
           alert("클라우드 DB 저장에 실패했습니다. (테이블 스키마 확인 필요)");
         }
       } catch (e) { console.error("Extra Work Create Exception:", e); }
     }
-    const reports = await this.getExtraWorkReports();
-    setLocal('friendly_extra_work', [...reports, report]);
+
+    // 로컬 스토리지 업데이트 및 알림
+    const currentLocal = getLocal('friendly_extra_work');
+    setLocal('friendly_extra_work', [...currentLocal, report]);
+    
     await this.createNotification({
       id: `notif-extra-${Date.now()}`,
       userId: 'ADMIN',
