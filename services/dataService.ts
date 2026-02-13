@@ -183,7 +183,6 @@ export const dataService = {
   async createExtraWorkReport(report: ExtraWorkReport): Promise<void> {
     if (isSupabaseConfigured) {
       try { 
-        // 1. Supabase 저장 시도 (컬럼명을 명시적으로 지정하여 전송)
         const { error } = await supabase.from('extra_work_reports').insert([{
           id: report.id,
           userId: report.userId,
@@ -203,7 +202,7 @@ export const dataService = {
 
         if (error) {
           console.error("Supabase Insert Error Detail:", error);
-          alert(`DB 저장 실패: ${error.message}\n(테이블 스키마에서 '${error.hint || '알 수 없는 컬럼'}'을 찾을 수 없는 것 같습니다. SQL 스크립트를 다시 실행해 주세요.)`);
+          alert(`DB 저장 실패: ${error.message}`);
           return;
         }
       } catch (e: any) { 
@@ -213,7 +212,6 @@ export const dataService = {
       }
     }
 
-    // 2. 로컬 스토리지 업데이트 및 알림
     const currentLocal = getLocal('friendly_extra_work');
     setLocal('friendly_extra_work', [...currentLocal, report]);
     
@@ -230,16 +228,27 @@ export const dataService = {
   },
 
   async updateExtraWorkStatus(reportId: string, status: Status): Promise<void> {
+    // 최신 리포트 정보 가져오기
     const reports = await this.getExtraWorkReports();
     const target = reports.find(r => r.id === reportId);
+    
     if (isSupabaseConfigured) {
       try { await supabase.from('extra_work_reports').update({ status }).eq('id', reportId); } catch (e) {}
     }
     setLocal('friendly_extra_work', reports.map(r => r.id === reportId ? { ...r, status } : r));
+
+    // 승인된 경우 유저의 보상 휴가 잔여량 업데이트
     if (status === 'APPROVED' && target) {
       const users = await this.getUsers();
       const user = users.find(u => u.id === target.userId);
-      if (user) await this.updateUser(user.id, { extraLeaveAvailable: (user.extraLeaveAvailable || 0) + target.rewardAmount });
+      if (user) {
+        const currentBalance = Number(user.extraLeaveAvailable || 0);
+        const reward = Number(target.rewardAmount || 0);
+        await this.updateUser(user.id, { 
+          extraLeaveAvailable: currentBalance + reward 
+        });
+        console.log(`User ${user.name} reward updated: ${currentBalance} -> ${currentBalance + reward}`);
+      }
     }
   },
 

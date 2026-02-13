@@ -18,10 +18,13 @@ const Dashboard: React.FC = () => {
   const [selectedEvent, setSelectedEvent] = useState<{type: 'REQ' | 'MEET', data: any} | null>(null);
 
   const fetchData = async () => {
-    const session = localStorage.getItem('friendly_current_session');
-    if (session) {
+    const sessionStr = localStorage.getItem('friendly_current_session');
+    let uId = '';
+    if (sessionStr) {
       try {
-        setCurrentUser(JSON.parse(session));
+        const u = JSON.parse(sessionStr);
+        uId = u.id;
+        setCurrentUser(u);
       } catch (e) { console.error("Session parse error"); }
     }
     
@@ -36,10 +39,14 @@ const Dashboard: React.FC = () => {
       setAllRequests(reqs.filter(r => r.status === 'APPROVED' || r.status.startsWith('PENDING')));
       setAllMeetings(meetings || []);
       
-      if (session) {
-        const u = JSON.parse(session);
-        const freshUser = users.find(x => x.id === u.id);
-        if (freshUser) setCurrentUser(freshUser);
+      // 유저 정보 동기화 (세션 정보가 아닌 DB의 최신 정보로 업데이트)
+      if (uId) {
+        const freshUser = users.find(x => x.id === uId);
+        if (freshUser) {
+          setCurrentUser(freshUser);
+          // 세션에도 최신 정보 반영
+          localStorage.setItem('friendly_current_session', JSON.stringify(freshUser));
+        }
       }
     } catch (err) { 
       console.error('Dashboard data fetch failed', err); 
@@ -100,7 +107,7 @@ const Dashboard: React.FC = () => {
   );
 
   const user = currentUser || { totalLeave: 15, usedLeave: 0, extraLeaveAvailable: 0, extraLeaveUsed: 0, name: '사용자' };
-  const remainingExtra = (user.extraLeaveAvailable || 0) - (user.extraLeaveUsed || 0);
+  const remainingExtra = (Number(user.extraLeaveAvailable) || 0) - (Number(user.extraLeaveUsed) || 0);
   const selectedDateEvents = selectedDay ? getEventsForDate(selectedDay) : { requests: [], meetings: [] };
 
   return (
@@ -185,16 +192,13 @@ const Dashboard: React.FC = () => {
                     <>
                       <span className={`text-[11px] font-black ${isToday ? 'bg-indigo-600 text-white w-6 h-6 flex items-center justify-center rounded-lg shadow-lg' : isSelected ? 'text-indigo-600' : 'text-slate-400'}`}>{day}</span>
                       
-                      {/* 이벤트 리스트: 모바일(막대) / PC(텍스트) */}
+                      {/* 이벤트 리스트 */}
                       <div className="mt-2 flex flex-col gap-1 w-full px-1">
-                        {/* 1. 휴가/출장 요청 */}
                         {events.requests.slice(0, 3).map(req => (
                           <div key={req.id} className="w-full">
-                            {/* 데스크톱용: 텍스트 레이블 */}
                             <div className={`hidden md:block px-2 py-0.5 rounded-md border text-[8px] font-black truncate ${LEAVE_TYPE_COLORS[req.type]}`}>
                               {LEAVE_TYPE_LABELS[req.type]} | {req.userName}
                             </div>
-                            {/* 모바일용: 컬러 바 */}
                             <div className={`md:hidden h-1 w-full rounded-full ${LEAVE_TYPE_COLORS[req.type].split(' ')[0] === 'bg-emerald-50' ? 'bg-emerald-400' : 
                                               LEAVE_TYPE_COLORS[req.type].split(' ')[0] === 'bg-teal-50' ? 'bg-teal-400' :
                                               LEAVE_TYPE_COLORS[req.type].split(' ')[0] === 'bg-blue-50' ? 'bg-blue-400' :
@@ -202,7 +206,6 @@ const Dashboard: React.FC = () => {
                           </div>
                         ))}
                         
-                        {/* 2. 회의 일정 */}
                         {events.meetings.slice(0, 1).map(meet => (
                           <div key={meet.id} className="w-full">
                             <div className="hidden md:block px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-100 text-[8px] font-black truncate">
@@ -213,7 +216,6 @@ const Dashboard: React.FC = () => {
                         ))}
                       </div>
 
-                      {/* 추가 개수 표시 */}
                       {(events.requests.length + events.meetings.length > 3) && (
                         <span className="absolute bottom-1 right-2 text-[8px] font-black text-slate-300">
                           +{events.requests.length + events.meetings.length - 3}
@@ -281,10 +283,10 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* 일정 상세 및 취소 팝업 (Modal) */}
+      {/* 일정 상세 모달 */}
       {selectedEvent && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-           <div className="bg-white w-full max-w-sm rounded-[40px] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+           <div className="bg-white w-full max-sm rounded-[40px] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
               <div className="p-8 space-y-6">
                  <div className="flex justify-between items-start">
                     <div>
@@ -321,7 +323,6 @@ const Dashboard: React.FC = () => {
                  </div>
 
                  <div className="flex flex-col gap-3 pt-4">
-                    {/* 본인 일정일 경우에만 취소 버튼 표시 */}
                     {(selectedEvent.data.userId === currentUser?.id || selectedEvent.data.organizerId === currentUser?.id) ? (
                        <button 
                         onClick={handleCancelEvent}
