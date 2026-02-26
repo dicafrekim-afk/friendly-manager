@@ -25,13 +25,13 @@ const AdminRequests: React.FC = () => {
           dataService.getExtraWorkReports()
         ]);
 
-        const hasFullAccess = isSuperAdmin(parsedUser.email) || parsedUser.role === 'ADMIN';
-        
-        if (hasFullAccess) {
+        const isSuperAdm = isSuperAdmin(parsedUser.email);
+
+        if (isSuperAdm) {
           setRequests(allRequests || []);
           setExtraReports(allExtra || []);
-          console.log("Admin Loaded Work Data:", allExtra);
-        } else {
+        } else if (parsedUser.role === 'ADMIN') {
+          // PL: 본인 팀 신청만 표시
           setRequests((allRequests || []).filter(r => r.userTeam === parsedUser.team));
           setExtraReports((allExtra || []).filter(r => r.userTeam === parsedUser.team));
         }
@@ -51,13 +51,21 @@ const AdminRequests: React.FC = () => {
     fetchData();
   };
 
-  const handleAction = async (id: string, status: any) => {
-    await dataService.updateRequestStatus(id, status);
+  const handleAction = async (id: string, action: 'APPROVE' | 'REJECT') => {
+    if (!currentUser) return;
+    const nextStatus = action === 'APPROVE'
+      ? (isSuperAdmin(currentUser.email) ? 'APPROVED' : 'PENDING_FINAL')
+      : 'REJECTED';
+    await dataService.updateRequestStatus(id, nextStatus as any);
     fetchData();
   };
 
-  const handleExtraAction = async (id: string, status: any) => {
-    await dataService.updateExtraWorkStatus(id, status);
+  const handleExtraAction = async (id: string, action: 'APPROVE' | 'REJECT') => {
+    if (!currentUser) return;
+    const nextStatus = action === 'APPROVE'
+      ? (isSuperAdmin(currentUser.email) ? 'APPROVED' : 'PENDING_FINAL')
+      : 'REJECTED';
+    await dataService.updateExtraWorkStatus(id, nextStatus as any);
     fetchData();
   };
 
@@ -75,6 +83,26 @@ const AdminRequests: React.FC = () => {
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
     </div>
   );
+
+  const isSuperAdm = isSuperAdmin(currentUser.email);
+  const isPL = currentUser.role === 'ADMIN' && !isSuperAdm;
+
+  // PL은 PENDING_PL 상태만, Super Admin은 PENDING_FINAL 상태만 액션 가능
+  const canAction = (status: string): boolean => {
+    if (isSuperAdm) return status === 'PENDING_FINAL';
+    if (isPL) return status === 'PENDING_PL';
+    return false;
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'PENDING_PL': return 'PL 승인 대기';
+      case 'PENDING_FINAL': return '최종 승인 대기';
+      case 'APPROVED': return '승인 완료';
+      case 'REJECTED': return '반려';
+      default: return status;
+    }
+  };
 
   return (
     <div className="space-y-6 md:space-y-10 pb-20 px-2 md:px-0 animate-in fade-in duration-500">
@@ -112,12 +140,12 @@ const AdminRequests: React.FC = () => {
                     <div className="pt-2 border-t border-slate-100"><p className="text-[11px] font-medium text-slate-500">{req.reason}</p></div>
                   </div>
                   <div className="flex gap-2">
-                    {req.status?.startsWith('PENDING') ? (
+                    {canAction(req.status) ? (
                       <>
-                        <button onClick={() => handleAction(req.id, 'APPROVED')} className="flex-1 py-3 bg-indigo-600 text-white text-[11px] font-black rounded-xl shadow-lg">승인</button>
-                        <button onClick={() => handleAction(req.id, 'REJECTED')} className="flex-1 py-3 bg-slate-100 text-slate-400 text-[11px] font-black rounded-xl">반려</button>
+                        <button onClick={() => handleAction(req.id, 'APPROVE')} className="flex-1 py-3 bg-indigo-600 text-white text-[11px] font-black rounded-xl shadow-lg">승인</button>
+                        <button onClick={() => handleAction(req.id, 'REJECT')} className="flex-1 py-3 bg-slate-100 text-slate-400 text-[11px] font-black rounded-xl">반려</button>
                       </>
-                    ) : <div className="w-full py-2 bg-slate-50 text-slate-300 text-[10px] font-black uppercase text-center rounded-xl">{req.status}</div>}
+                    ) : <div className="w-full py-2 bg-slate-50 text-slate-300 text-[10px] font-black text-center rounded-xl">{getStatusLabel(req.status)}</div>}
                   </div>
                 </div>
               ))
@@ -143,12 +171,12 @@ const AdminRequests: React.FC = () => {
                            <td className="px-8 py-6 text-[11px] font-bold text-slate-500">{req.reason}</td>
                            <td className="px-8 py-6 text-[10px] font-black text-slate-400">{req.startDate} {req.endDate !== req.startDate ? `~ ${req.endDate}` : ''}</td>
                            <td className="px-8 py-6 text-right">
-                              {req.status?.startsWith('PENDING') ? (
+                              {canAction(req.status) ? (
                                  <div className="flex justify-end gap-2">
-                                    <button onClick={() => handleAction(req.id, 'APPROVED')} className="px-4 py-2 bg-indigo-600 text-white text-[10px] font-black rounded-xl shadow-lg">승인</button>
-                                    <button onClick={() => handleAction(req.id, 'REJECTED')} className="px-4 py-2 bg-slate-100 text-slate-400 text-[10px] font-black rounded-xl">반려</button>
+                                    <button onClick={() => handleAction(req.id, 'APPROVE')} className="px-4 py-2 bg-indigo-600 text-white text-[10px] font-black rounded-xl shadow-lg">승인</button>
+                                    <button onClick={() => handleAction(req.id, 'REJECT')} className="px-4 py-2 bg-slate-100 text-slate-400 text-[10px] font-black rounded-xl">반려</button>
                                  </div>
-                              ) : <span className="text-[10px] font-black uppercase text-slate-300">{req.status}</span>}
+                              ) : <span className="text-[10px] font-black text-slate-300">{getStatusLabel(req.status)}</span>}
                            </td>
                         </tr>
                       ))
@@ -177,12 +205,12 @@ const AdminRequests: React.FC = () => {
                     <div className="pt-2 border-t border-slate-100 text-[10px] text-slate-400 font-bold">{formatTimeRange(rep.startDateTime, rep.endDateTime)} ({rep.workHours}h)</div>
                   </div>
                   <div className="flex gap-2">
-                    {rep.status === 'PENDING_PL' ? (
+                    {canAction(rep.status) ? (
                       <>
-                        <button onClick={() => handleExtraAction(rep.id, 'APPROVED')} className="flex-1 py-3 bg-violet-600 text-white text-[11px] font-black rounded-xl shadow-lg">승인</button>
-                        <button onClick={() => handleExtraAction(rep.id, 'REJECTED')} className="flex-1 py-3 bg-slate-100 text-slate-400 text-[11px] font-black rounded-xl">반려</button>
+                        <button onClick={() => handleExtraAction(rep.id, 'APPROVE')} className="flex-1 py-3 bg-violet-600 text-white text-[11px] font-black rounded-xl shadow-lg">승인</button>
+                        <button onClick={() => handleExtraAction(rep.id, 'REJECT')} className="flex-1 py-3 bg-slate-100 text-slate-400 text-[11px] font-black rounded-xl">반려</button>
                       </>
-                    ) : <div className="w-full py-2 bg-slate-50 text-slate-300 text-[10px] font-black uppercase text-center rounded-xl">{rep.status}</div>}
+                    ) : <div className="w-full py-2 bg-slate-50 text-slate-300 text-[10px] font-black text-center rounded-xl">{getStatusLabel(rep.status)}</div>}
                   </div>
                 </div>
               ))
@@ -208,12 +236,12 @@ const AdminRequests: React.FC = () => {
                            <td className="px-8 py-6 text-[10px] font-bold text-slate-900">{formatTimeRange(rep.startDateTime, rep.endDateTime)} ({rep.workHours}h)</td>
                            <td className="px-8 py-6 font-black text-slate-900 text-sm">{rep.rewardAmount}d</td>
                            <td className="px-8 py-6 text-right">
-                              {rep.status === 'PENDING_PL' ? (
+                              {canAction(rep.status) ? (
                                  <div className="flex justify-end gap-2">
-                                    <button onClick={() => handleExtraAction(rep.id, 'APPROVED')} className="px-4 py-2 bg-violet-600 text-white text-[10px] font-black rounded-xl shadow-lg">승인</button>
-                                    <button onClick={() => handleExtraAction(rep.id, 'REJECTED')} className="px-4 py-2 bg-slate-100 text-slate-400 text-[10px] font-black rounded-xl">반려</button>
+                                    <button onClick={() => handleExtraAction(rep.id, 'APPROVE')} className="px-4 py-2 bg-violet-600 text-white text-[10px] font-black rounded-xl shadow-lg">승인</button>
+                                    <button onClick={() => handleExtraAction(rep.id, 'REJECT')} className="px-4 py-2 bg-slate-100 text-slate-400 text-[10px] font-black rounded-xl">반려</button>
                                  </div>
-                              ) : <span className="text-[10px] font-black uppercase text-slate-300">{rep.status}</span>}
+                              ) : <span className="text-[10px] font-black text-slate-300">{getStatusLabel(rep.status)}</span>}
                            </td>
                         </tr>
                       ))

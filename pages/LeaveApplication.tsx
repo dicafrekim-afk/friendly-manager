@@ -102,6 +102,23 @@ const LeaveApplication: React.FC = () => {
                 보유 중인 보상 휴가: {(currentUser.extraLeaveAvailable || 0) - (currentUser.extraLeaveUsed || 0)}일
              </div>
           )}
+          {type === 'HALF_DAY' && (
+            <div className="space-y-3">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">반차 구분</label>
+              <div className="grid grid-cols-2 gap-3">
+                {(['MORNING', 'AFTERNOON'] as const).map(t => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setHalfDayType(t)}
+                    className={`py-4 rounded-2xl text-[11px] font-black transition-all border-2 ${halfDayType === t ? 'bg-indigo-600 text-white border-indigo-600 shadow-xl' : 'bg-slate-50 text-slate-400 border-transparent hover:border-slate-100'}`}
+                  >
+                    {t === 'MORNING' ? '오전 반차' : '오후 반차'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 기존 폼 필드들과 로직은 동일하게 유지 (시작일, 종료일, 사유 등) */}

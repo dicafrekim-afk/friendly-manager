@@ -5,6 +5,39 @@ import { User, LeaveRequest, Meeting } from '../types';
 import { dataService } from '../services/dataService';
 import { LEAVE_TYPE_COLORS, LEAVE_TYPE_LABELS } from '../constants';
 
+const KOREAN_HOLIDAYS = new Set([
+  // 2025
+  '2025-01-01', '2025-01-28', '2025-01-29', '2025-01-30',
+  '2025-03-01', '2025-05-05', '2025-05-06', '2025-06-06',
+  '2025-08-15', '2025-10-03', '2025-10-05', '2025-10-06', '2025-10-07', '2025-10-08', '2025-10-09',
+  '2025-12-25',
+  // 2026
+  '2026-01-01', '2026-02-16', '2026-02-17', '2026-02-18',
+  '2026-03-01', '2026-03-02',
+  '2026-05-05', '2026-05-24', '2026-05-25',
+  '2026-06-06',
+  '2026-08-15', '2026-08-17',
+  '2026-09-24', '2026-09-25', '2026-09-26', '2026-09-28',
+  '2026-10-03', '2026-10-05', '2026-10-09',
+  '2026-12-25',
+  // 2027
+  '2027-01-01', '2027-02-06', '2027-02-07', '2027-02-08',
+  '2027-03-01',
+  '2027-05-05', '2027-05-13',
+  '2027-06-06', '2027-06-07',
+  '2027-08-15', '2027-08-16',
+  '2027-10-03', '2027-10-04', '2027-10-09',
+  '2027-10-14', '2027-10-15', '2027-10-16',
+  '2027-12-25',
+]);
+
+const getLeaveLabel = (req: LeaveRequest): string => {
+  if (req.type === 'HALF_DAY') {
+    return req.halfDayType === 'AFTERNOON' ? '오후반차' : '오전반차';
+  }
+  return LEAVE_TYPE_LABELS[req.type];
+};
+
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   
@@ -174,15 +207,31 @@ const Dashboard: React.FC = () => {
           </div>
           
           <div className="grid grid-cols-7 gap-1 md:gap-4">
-            {['일','월','화','수','목','금','토'].map(d => <div key={d} className="text-center text-[10px] font-black text-slate-300 uppercase py-2">{d}</div>)}
+            {['일','월','화','수','목','금','토'].map((d, i) => (
+              <div key={d} className={`text-center text-[10px] font-black uppercase py-2 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-slate-300'}`}>{d}</div>
+            ))}
             {calendarDays.map((day, idx) => {
               const events = day ? getEventsForDate(day) : { requests: [], meetings: [] };
-              const isToday = day === new Date().getDate() && currentDate.getMonth() === new Date().getMonth();
+              const isToday = day === new Date().getDate() && currentDate.getMonth() === new Date().getMonth() && currentDate.getFullYear() === new Date().getFullYear();
               const isSelected = selectedDay === day;
-              
+              const dayOfWeek = idx % 7; // 0=일, 6=토
+              const dateStr = day ? `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` : '';
+              const isHoliday = dateStr ? KOREAN_HOLIDAYS.has(dateStr) : false;
+              const isSunday = dayOfWeek === 0;
+              const isSaturday = dayOfWeek === 6;
+              const dayNumClass = isToday
+                ? 'bg-indigo-600 text-white w-6 h-6 flex items-center justify-center rounded-lg shadow-lg'
+                : (isHoliday || isSunday)
+                  ? 'text-red-500'
+                  : isSaturday
+                    ? 'text-blue-500'
+                    : isSelected
+                      ? 'text-indigo-600'
+                      : 'text-slate-400';
+
               return (
-                <div 
-                  key={idx} 
+                <div
+                  key={idx}
                   onClick={() => day && setSelectedDay(day)}
                   className={`min-h-[70px] md:min-h-[120px] p-2 rounded-2xl border transition-all cursor-pointer relative flex flex-col items-center justify-start overflow-hidden ${
                     day ? (isSelected ? 'bg-indigo-50 border-indigo-200 ring-2 ring-indigo-100 shadow-inner' : 'bg-white border-transparent hover:border-slate-100') : 'bg-transparent border-transparent'
@@ -190,14 +239,14 @@ const Dashboard: React.FC = () => {
                 >
                   {day && (
                     <>
-                      <span className={`text-[11px] font-black ${isToday ? 'bg-indigo-600 text-white w-6 h-6 flex items-center justify-center rounded-lg shadow-lg' : isSelected ? 'text-indigo-600' : 'text-slate-400'}`}>{day}</span>
+                      <span className={`text-[11px] font-black ${dayNumClass}`}>{day}</span>
                       
                       {/* 이벤트 리스트 */}
                       <div className="mt-2 flex flex-col gap-1 w-full px-1">
                         {events.requests.slice(0, 3).map(req => (
                           <div key={req.id} className="w-full">
                             <div className={`hidden md:block px-2 py-0.5 rounded-md border text-[8px] font-black truncate ${LEAVE_TYPE_COLORS[req.type]}`}>
-                              {LEAVE_TYPE_LABELS[req.type]} | {req.userName}
+                              {getLeaveLabel(req)} | {req.userName}
                             </div>
                             <div className={`md:hidden h-1 w-full rounded-full ${LEAVE_TYPE_COLORS[req.type].split(' ')[0] === 'bg-emerald-50' ? 'bg-emerald-400' : 
                                               LEAVE_TYPE_COLORS[req.type].split(' ')[0] === 'bg-teal-50' ? 'bg-teal-400' :
@@ -248,7 +297,7 @@ const Dashboard: React.FC = () => {
                       >
                          <div className="flex justify-between items-start mb-2">
                             <p className="text-xs font-black text-slate-900 group-hover:text-indigo-600 transition-colors">{req.userName}</p>
-                            <span className={`text-[8px] font-black px-2 py-0.5 rounded-full border ${LEAVE_TYPE_COLORS[req.type]}`}>{LEAVE_TYPE_LABELS[req.type]}</span>
+                            <span className={`text-[8px] font-black px-2 py-0.5 rounded-full border ${LEAVE_TYPE_COLORS[req.type]}`}>{getLeaveLabel(req)}</span>
                          </div>
                          <p className="text-[10px] font-bold text-slate-400 line-clamp-1">{req.reason}</p>
                       </div>
@@ -291,7 +340,7 @@ const Dashboard: React.FC = () => {
                  <div className="flex justify-between items-start">
                     <div>
                        <span className={`text-[10px] font-black px-3 py-1 rounded-full border uppercase tracking-widest ${selectedEvent.type === 'REQ' ? LEAVE_TYPE_COLORS[selectedEvent.data.type] : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
-                          {selectedEvent.type === 'REQ' ? LEAVE_TYPE_LABELS[selectedEvent.data.type] : '회의 일정'}
+                          {selectedEvent.type === 'REQ' ? getLeaveLabel(selectedEvent.data) : '회의 일정'}
                        </span>
                        <h3 className="text-xl font-black text-slate-900 mt-4 leading-tight">
                           {selectedEvent.type === 'REQ' ? `${selectedEvent.data.userName}님의 신청` : selectedEvent.data.title}
