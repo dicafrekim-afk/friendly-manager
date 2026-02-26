@@ -5,7 +5,16 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
-  
+
+  // 로컬 dev에서 /api/slack-notify → Slack 웹훅으로 서버 사이드 프록시
+  const slackWebhookUrl = env.SLACK_WEBHOOK_URL || '';
+  const slackProxyTarget = slackWebhookUrl
+    ? `${new URL(slackWebhookUrl).origin}`
+    : 'https://hooks.slack.com';
+  const slackProxyPath = slackWebhookUrl
+    ? new URL(slackWebhookUrl).pathname
+    : '/';
+
   return {
     plugins: [
       react(),
@@ -45,7 +54,16 @@ export default defineConfig(({ mode }) => {
       'process.env.API_KEY': JSON.stringify(env.API_KEY || ''),
       'process.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL || ''),
       'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY || ''),
-      'process.env.SLACK_WEBHOOK_URL': JSON.stringify(env.SLACK_WEBHOOK_URL || ''),
+      // SLACK_WEBHOOK_URL은 서버 사이드에서만 사용 → 클라이언트 번들에서 제거
+    },
+    server: {
+      proxy: {
+        '/api/slack-notify': {
+          target: slackProxyTarget,
+          changeOrigin: true,
+          rewrite: () => slackProxyPath,
+        },
+      },
     },
     build: {
       outDir: 'dist',

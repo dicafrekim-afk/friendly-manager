@@ -7,9 +7,6 @@ export interface GeneratedEmail {
   body: string;
 }
 
-// .env.local (로컬) / Vercel 환경변수 → SLACK_WEBHOOK_URL
-const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL || '';
-
 const LEAVE_TYPE_KO: Record<string, string> = {
   VACATION: '연차',
   HALF_DAY: '반차',
@@ -32,18 +29,15 @@ const getTypeLabel = (req: LeaveRequest): string =>
 const getDateRange = (req: LeaveRequest): string =>
   req.startDate === req.endDate ? req.startDate : `${req.startDate} ~ ${req.endDate}`;
 
+// 브라우저 → /api/slack-notify(서버) → Slack 웹훅 순서로 호출
+// 로컬 dev: Vite 프록시가 /api/slack-notify를 Slack으로 포워딩
+// Vercel 배포: /api/slack-notify 서버리스 함수가 처리
 const postToSlack = async (payload: object): Promise<void> => {
-  if (!SLACK_WEBHOOK_URL) {
-    console.warn('SLACK_WEBHOOK_URL이 설정되지 않았습니다.');
-    return;
-  }
   try {
-    // 브라우저 CORS 우회: no-cors + form-encoded
-    await fetch(SLACK_WEBHOOK_URL, {
+    await fetch('/api/slack-notify', {
       method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `payload=${encodeURIComponent(JSON.stringify(payload))}`,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
     });
   } catch (err) {
     console.error('Slack 알림 전송 실패:', err);
