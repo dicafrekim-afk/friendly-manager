@@ -1,6 +1,7 @@
 
 import { User, LeaveRequest, Status, Notification, Meeting, Team, LeaveType, ExtraWorkReport } from '../types';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { notificationService } from './notificationService';
 
 export const SUPER_ADMIN_EMAILS = [
   'sllee0531@mail.go.kr',
@@ -121,6 +122,9 @@ export const dataService = {
     const reqs = await this.getRequests();
     setLocal('friendly_requests', [...reqs, finalRequest]);
     if (initialStatus === 'APPROVED') await this.handleApprovedLeave(finalRequest);
+
+    // 슬랙 알림 전송 (비동기, 실패해도 신청 처리에 영향 없음)
+    notificationService.sendSlackLeaveNotification(finalRequest).catch(() => {});
   },
 
   async handleApprovedLeave(req: LeaveRequest): Promise<void> {
@@ -166,7 +170,11 @@ export const dataService = {
       try { await supabase.from('leave_requests').update({ status }).eq('id', requestId); } catch (e) {}
     }
     setLocal('friendly_requests', reqs.map(r => r.id === requestId ? { ...r, status } : r));
-    if (status === 'APPROVED' && target) await this.handleApprovedLeave(target);
+    if (status === 'APPROVED' && target) {
+      await this.handleApprovedLeave(target);
+      // 최종 승인 시 슬랙 알림 (신청자에게)
+      notificationService.sendSlackApprovalNotification(target).catch(() => {});
+    }
   },
 
   async getExtraWorkReports(): Promise<ExtraWorkReport[]> {
