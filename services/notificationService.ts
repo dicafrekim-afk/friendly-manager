@@ -7,8 +7,8 @@ export interface GeneratedEmail {
   body: string;
 }
 
-// .env.local → VITE_SLACK_WEBHOOK_URL
-const SLACK_WEBHOOK_URL = process.env.VITE_SLACK_WEBHOOK_URL || '';
+// .env.local (로컬) / Vercel 환경변수 → SLACK_WEBHOOK_URL
+const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL || '';
 
 const LEAVE_TYPE_KO: Record<string, string> = {
   VACATION: '연차',
@@ -34,7 +34,7 @@ const getDateRange = (req: LeaveRequest): string =>
 
 const postToSlack = async (payload: object): Promise<void> => {
   if (!SLACK_WEBHOOK_URL) {
-    console.warn('VITE_SLACK_WEBHOOK_URL이 설정되지 않았습니다.');
+    console.warn('SLACK_WEBHOOK_URL이 설정되지 않았습니다.');
     return;
   }
   try {

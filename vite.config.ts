@@ -45,7 +45,7 @@ export default defineConfig(({ mode }) => {
       'process.env.API_KEY': JSON.stringify(env.API_KEY || ''),
       'process.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL || ''),
       'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY || ''),
-      'process.env.VITE_SLACK_WEBHOOK_URL': JSON.stringify(env.VITE_SLACK_WEBHOOK_URL || ''),
+      'process.env.SLACK_WEBHOOK_URL': JSON.stringify(env.SLACK_WEBHOOK_URL || ''),
     },
     build: {
       outDir: 'dist',
