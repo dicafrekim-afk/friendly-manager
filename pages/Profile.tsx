@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { User, Team } from '../types';
 import { dataService } from '../services/dataService';
 
-const TEAMS: Team[] = ['공채', '경채', '특정직', '공통'];
+const TEAMS: Team[] = ['공채', '경채', '특정직', '공통', '위기대응'];
 
 const Profile: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);

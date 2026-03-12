@@ -4,13 +4,17 @@ import { User, Role, Team } from '../types';
 import { dataService, isSuperAdmin } from '../services/dataService';
 import { isSupabaseConfigured } from '../lib/supabase';
 
-const TEAMS: Team[] = ['공채', '경채', '특정직', '공통'];
+const TEAMS: Team[] = ['공채', '경채', '특정직', '공통', '위기대응'];
 
 const AdminUserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [copied, setCopied] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [rewardInput, setRewardInput] = useState<number>(0);
+  const [rewardReason, setRewardReason] = useState('');
+  const [rewardSaved, setRewardSaved] = useState(false);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -21,6 +25,8 @@ const AdminUserManagement: React.FC = () => {
 
   useEffect(() => {
     fetchUsers();
+    const session = localStorage.getItem('friendly_current_session');
+    if (session) setCurrentUser(JSON.parse(session));
   }, []);
 
   const handleCopyLink = () => {
@@ -51,6 +57,20 @@ const AdminUserManagement: React.FC = () => {
     });
     
     setEditingUser(null);
+    await fetchUsers();
+  };
+
+  const handleGrantRewardLeave = async () => {
+    if (!editingUser || rewardInput <= 0) return;
+    const updated = {
+      extraLeaveAvailable: (editingUser.extraLeaveAvailable || 0) + rewardInput
+    };
+    await dataService.updateUser(editingUser.id, updated);
+    setEditingUser({ ...editingUser, ...updated });
+    setRewardInput(0);
+    setRewardReason('');
+    setRewardSaved(true);
+    setTimeout(() => setRewardSaved(false), 2000);
     await fetchUsers();
   };
 
@@ -92,7 +112,7 @@ const AdminUserManagement: React.FC = () => {
           return (
             <div 
               key={u.id} 
-              onClick={() => setEditingUser(u)}
+              onClick={() => { setEditingUser(u); setRewardInput(0); setRewardReason(''); setRewardSaved(false); }}
               className="group bg-white p-6 rounded-3xl shadow-sm border border-slate-50 hover:shadow-xl transition-all cursor-pointer relative"
             >
               <div className="flex justify-between items-start mb-4">
@@ -229,6 +249,54 @@ const AdminUserManagement: React.FC = () => {
                   <input type="number" value={editingUser.usedLeave} onChange={(e) => setEditingUser({...editingUser, usedLeave: Number(e.target.value)})} className="w-full px-4 py-3 rounded-2xl bg-slate-50 border-2 border-slate-50 outline-none text-sm font-black text-center" />
                 </div>
               </div>
+
+              {currentUser && isSuperAdmin(currentUser.email) && (
+                <div className="space-y-4 p-5 bg-violet-50 rounded-3xl border border-violet-100">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-black text-violet-500 uppercase tracking-widest">보상휴가 부여</label>
+                    <div className="flex gap-3 text-[10px] font-black text-violet-400">
+                      <span>잔여 <span className="text-violet-600">{editingUser.extraLeaveAvailable || 0}d</span></span>
+                      <span>사용 <span className="text-violet-400">{editingUser.extraLeaveUsed || 0}d</span></span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="col-span-1">
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.5}
+                        value={rewardInput || ''}
+                        onChange={(e) => setRewardInput(Number(e.target.value))}
+                        placeholder="일수"
+                        className="w-full px-4 py-3 rounded-2xl bg-white border-2 border-violet-100 focus:border-violet-500 outline-none text-sm font-black text-center transition-all"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <input
+                        type="text"
+                        value={rewardReason}
+                        onChange={(e) => setRewardReason(e.target.value)}
+                        placeholder="부여 사유 (선택)"
+                        className="w-full px-4 py-3 rounded-2xl bg-white border-2 border-violet-100 focus:border-violet-500 outline-none text-sm font-bold transition-all"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleGrantRewardLeave}
+                    disabled={rewardInput <= 0}
+                    className={`w-full py-3 rounded-2xl text-xs font-black transition-all ${
+                      rewardSaved
+                        ? 'bg-emerald-500 text-white'
+                        : rewardInput > 0
+                        ? 'bg-violet-600 text-white hover:bg-violet-700 shadow-lg shadow-violet-100'
+                        : 'bg-violet-100 text-violet-300 cursor-not-allowed'
+                    }`}
+                  >
+                    {rewardSaved ? '✓ 부여 완료' : `보상휴가 ${rewardInput > 0 ? `+${rewardInput}d ` : ''}부여`}
+                  </button>
+                </div>
+              )}
 
               <div className="flex flex-col gap-3 pt-4 shrink-0 pb-6">
                 <div className="flex gap-3">

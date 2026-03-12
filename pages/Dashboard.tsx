@@ -69,7 +69,7 @@ const Dashboard: React.FC = () => {
         dataService.getMeetings().catch(() => [])
       ]);
       
-      setAllRequests(reqs.filter(r => r.status === 'APPROVED' || r.status.startsWith('PENDING')));
+      setAllRequests(reqs.filter(r => r.status === 'APPROVED'));
       setAllMeetings(meetings || []);
       
       // 유저 정보 동기화 (세션 정보가 아닌 DB의 최신 정보로 업데이트)
@@ -152,7 +152,6 @@ const Dashboard: React.FC = () => {
           <p className="text-indigo-100/80 mb-8 font-medium">친절한 휴가 관리를 도와드릴게요.</p>
           <div className="flex flex-wrap gap-4">
             <button onClick={() => navigate('/apply')} className="px-8 py-4 bg-white text-indigo-600 rounded-[20px] font-black text-sm shadow-xl hover:bg-slate-50 transition-all active:scale-95">휴가 신청</button>
-            <button onClick={() => navigate('/extra-work')} className="px-8 py-4 bg-indigo-500/40 text-white rounded-[20px] font-black text-sm border border-white/20 hover:bg-indigo-500/60 transition-all active:scale-95">근무 보고</button>
           </div>
         </div>
         <div className="absolute -top-20 -right-20 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>

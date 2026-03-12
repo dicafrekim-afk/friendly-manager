@@ -113,7 +113,6 @@ const AdminRequests: React.FC = () => {
         </div>
         <div className="flex bg-slate-100 p-1.5 rounded-[22px] shadow-inner w-full lg:w-auto overflow-x-auto scrollbar-hide">
            <button onClick={() => handleTabChange('LEAVE')} className={`flex-1 lg:flex-none px-6 py-3 rounded-2xl text-[11px] font-black transition-all whitespace-nowrap ${tab === 'LEAVE' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>휴가/출장 ({requests.length})</button>
-           <button onClick={() => handleTabChange('WORK')} className={`flex-1 lg:flex-none px-6 py-3 rounded-2xl text-[11px] font-black transition-all whitespace-nowrap ${tab === 'WORK' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>추가 근무 ({extraReports.length})</button>
         </div>
       </div>
 
