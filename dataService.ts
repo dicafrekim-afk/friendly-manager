@@ -323,6 +323,11 @@ export const dataService = {
 
   async deleteUser(id: string): Promise<void> {
     if (isSupabaseConfigured) {
+      // 연관 데이터 먼저 삭제 (Foreign Key 제약 해소)
+      await supabase.from('leave_requests').delete().eq('userId', id);
+      await supabase.from('extra_work_reports').delete().eq('userId', id);
+      await supabase.from('notifications').delete().eq('userId', id);
+
       const { error } = await supabase.from('users').delete().eq('id', id);
       if (error) {
         console.error('Supabase Delete Error:', error);
