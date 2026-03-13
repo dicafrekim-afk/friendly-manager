@@ -111,11 +111,11 @@ export const dataService = {
     const sessionStr = localStorage.getItem('friendly_current_session');
     const currentUser: User = sessionStr ? JSON.parse(sessionStr) : null;
     let initialStatus: Status = isSuperAdmin(currentUser?.email || '') ? 'APPROVED' : (currentUser?.role === 'ADMIN' ? 'PENDING_FINAL' : 'PENDING_PL');
-    
+
     const finalRequest = { ...request, status: initialStatus };
     if (isSupabaseConfigured) {
-      try { 
-        const { error } = await supabase.from('leave_requests').insert([finalRequest]); 
+      try {
+        const { error } = await supabase.from('leave_requests').insert([finalRequest]);
         if (error) console.error("Supabase Create Request Error:", error);
       } catch (e) {}
     }
@@ -124,6 +124,25 @@ export const dataService = {
     if (initialStatus === 'APPROVED') await this.handleApprovedLeave(finalRequest);
 
     // 슬랙 알림 전송 (비동기, 실패해도 신청 처리에 영향 없음)
+    notificationService.sendSlackLeaveNotification(finalRequest).catch(() => {});
+  },
+
+  // 관리자가 팀원의 휴가를 직접 입력할 때 사용 — 승인 절차 없이 즉시 차감
+  async adminDirectCreateLeave(request: LeaveRequest): Promise<void> {
+    const finalRequest: LeaveRequest = { ...request, status: 'APPROVED' as Status };
+
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase.from('leave_requests').insert([finalRequest]);
+        if (error) console.error("Supabase Admin Direct Create Error:", error);
+      } catch (e) {}
+    }
+    const reqs = await this.getRequests();
+    setLocal('friendly_requests', [...reqs, finalRequest]);
+
+    // 반드시 차감 처리 (role/session 조건에 무관하게 항상 실행)
+    await this.handleApprovedLeave(finalRequest);
+
     notificationService.sendSlackLeaveNotification(finalRequest).catch(() => {});
   },
 

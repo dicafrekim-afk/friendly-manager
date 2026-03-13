@@ -175,14 +175,14 @@ const Dashboard: React.FC = () => {
       startDate: addForm.startDate,
       endDate,
       reason: addForm.reason,
-      status: 'PENDING_PL',
+      status: 'APPROVED',
       createdAt: new Date().toISOString(),
       approverId: currentUser?.id
     };
 
-    await dataService.createRequest(request);
+    await dataService.adminDirectCreateLeave(request);
     setShowAddModal(false);
-    fetchData();
+    await fetchData();
   };
 
   if (loading && !currentUser) return (
