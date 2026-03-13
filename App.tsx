@@ -17,16 +17,22 @@ import { dataService } from './services/dataService';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [sessionChecked, setSessionChecked] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
-    const fetchSession = () => {
-      const savedUser = localStorage.getItem('friendly_current_session');
-      if (savedUser) setCurrentUser(JSON.parse(savedUser));
+    const savedUser = localStorage.getItem('friendly_current_session');
+    if (savedUser) {
+      try { setCurrentUser(JSON.parse(savedUser)); } catch (e) {}
+    }
+    setSessionChecked(true);
+
+    const onStorage = () => {
+      const updated = localStorage.getItem('friendly_current_session');
+      setCurrentUser(updated ? JSON.parse(updated) : null);
     };
-    fetchSession();
-    window.addEventListener('storage', fetchSession);
-    return () => window.removeEventListener('storage', fetchSession);
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
   }, []);
 
   const login = (user: User) => {
@@ -41,6 +47,7 @@ const App: React.FC = () => {
   };
 
   const AuthenticatedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    if (!sessionChecked) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>;
     if (!currentUser) return <Navigate to="/login" replace />;
     if (currentUser.status === 'PENDING') return <div className="min-h-screen flex items-center justify-center bg-slate-50">승인 대기 중...</div>;
     return (
