@@ -131,12 +131,14 @@ const Dashboard: React.FC = () => {
 
   const handleCancelEvent = async () => {
     if (!selectedEvent || !window.confirm('정말 이 일정을 취소하시겠습니까?')) return;
-    
+
     try {
       if (selectedEvent.type === 'REQ') {
         await dataService.deleteRequest(selectedEvent.data.id);
+        setAllRequests(prev => prev.filter(r => r.id !== selectedEvent.data.id));
       } else {
         await dataService.deleteMeeting(selectedEvent.data.id);
+        setAllMeetings(prev => prev.filter(m => m.id !== selectedEvent.data.id));
       }
       setSelectedEvent(null);
       fetchData();
