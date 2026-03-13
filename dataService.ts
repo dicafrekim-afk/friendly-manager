@@ -336,5 +336,19 @@ export const dataService = {
     }
     const localUsers = getLocal('friendly_users');
     setLocal('friendly_users', localUsers.filter((u: any) => u.id !== id));
+  },
+
+  async resetAllLeaveData(): Promise<void> {
+    // 1. 모든 휴가 신청 삭제
+    if (isSupabaseConfigured) {
+      try { await supabase.from('leave_requests').delete().neq('id', '___impossible___'); } catch (e) {}
+    }
+    setLocal('friendly_requests', []);
+
+    // 2. 모든 유저의 usedLeave 초기화
+    const users = await this.getUsers();
+    for (const user of users) {
+      await this.updateUser(user.id, { usedLeave: 0 });
+    }
   }
 };
