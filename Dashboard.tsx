@@ -135,10 +135,20 @@ const Dashboard: React.FC = () => {
     try {
       if (selectedEvent.type === 'REQ') {
         await dataService.deleteRequest(selectedEvent.data.id);
+        // Supabase 재조회 없이 localStorage 기반으로 즉시 상태 갱신
+        setAllRequests(prev => prev.filter(r => r.id !== selectedEvent.data.id));
       } else {
         await dataService.deleteMeeting(selectedEvent.data.id);
+        setAllMeetings(prev => prev.filter(m => m.id !== selectedEvent.data.id));
       }
-      window.location.reload();
+      setSelectedEvent(null);
+
+      // deleteRequest 내부의 updateUser가 이미 localStorage 세션을 갱신했으므로 그대로 읽어 반영
+      const updatedSession = localStorage.getItem('friendly_current_session');
+      if (updatedSession) {
+        const fresh = JSON.parse(updatedSession);
+        setCurrentUser(fresh);
+      }
     } catch (e) {
       alert('일정 취소 중 오류가 발생했습니다.');
     }
