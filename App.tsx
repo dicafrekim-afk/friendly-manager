@@ -15,6 +15,30 @@ import Header from './components/Header';
 import { User } from './types';
 import { dataService } from './services/dataService';
 
+interface AuthLayoutProps {
+  currentUser: User | null;
+  sessionChecked: boolean;
+  logout: () => void;
+  isSidebarOpen: boolean;
+  setIsSidebarOpen: (v: boolean) => void;
+  children: React.ReactNode;
+}
+
+const AuthenticatedLayout: React.FC<AuthLayoutProps> = ({ currentUser, sessionChecked, logout, isSidebarOpen, setIsSidebarOpen, children }) => {
+  if (!sessionChecked) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>;
+  if (!currentUser) return <Navigate to="/login" replace />;
+  if (currentUser.status === 'PENDING') return <div className="min-h-screen flex items-center justify-center bg-slate-50">승인 대기 중...</div>;
+  return (
+    <div className="flex min-h-screen bg-slate-50 relative">
+      <Sidebar user={currentUser} logout={logout} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      <div className="flex-1 flex flex-col">
+        <Header user={currentUser} onMenuToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
+        <main className="flex-1 p-4 md:p-8">{children}</main>
+      </div>
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
@@ -46,33 +70,20 @@ const App: React.FC = () => {
     setIsSidebarOpen(false);
   };
 
-  const AuthenticatedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    if (!sessionChecked) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>;
-    if (!currentUser) return <Navigate to="/login" replace />;
-    if (currentUser.status === 'PENDING') return <div className="min-h-screen flex items-center justify-center bg-slate-50">승인 대기 중...</div>;
-    return (
-      <div className="flex min-h-screen bg-slate-50 relative">
-        <Sidebar user={currentUser} logout={logout} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
-        <div className="flex-1 flex flex-col">
-          <Header user={currentUser} onMenuToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
-          <main className="flex-1 p-4 md:p-8">{children}</main>
-        </div>
-      </div>
-    );
-  };
+  const layoutProps = { currentUser, sessionChecked, logout, isSidebarOpen, setIsSidebarOpen };
 
   return (
     <HashRouter>
       <Routes>
         <Route path="/login" element={<Login onLogin={login} />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/" element={<AuthenticatedLayout><Dashboard /></AuthenticatedLayout>} />
-        <Route path="/apply" element={<AuthenticatedLayout><LeaveApplication /></AuthenticatedLayout>} />
-        <Route path="/extra-work" element={<AuthenticatedLayout><ExtraWorkReportPage /></AuthenticatedLayout>} />
-        <Route path="/meetings" element={<AuthenticatedLayout><MeetingSchedule /></AuthenticatedLayout>} />
-        <Route path="/profile" element={<AuthenticatedLayout><Profile /></AuthenticatedLayout>} />
-        <Route path="/admin/users" element={<AuthenticatedLayout><AdminUserManagement /></AuthenticatedLayout>} />
-        <Route path="/admin/requests" element={<AuthenticatedLayout><AdminRequests /></AuthenticatedLayout>} />
+        <Route path="/" element={<AuthenticatedLayout {...layoutProps}><Dashboard /></AuthenticatedLayout>} />
+        <Route path="/apply" element={<AuthenticatedLayout {...layoutProps}><LeaveApplication /></AuthenticatedLayout>} />
+        <Route path="/extra-work" element={<AuthenticatedLayout {...layoutProps}><ExtraWorkReportPage /></AuthenticatedLayout>} />
+        <Route path="/meetings" element={<AuthenticatedLayout {...layoutProps}><MeetingSchedule /></AuthenticatedLayout>} />
+        <Route path="/profile" element={<AuthenticatedLayout {...layoutProps}><Profile /></AuthenticatedLayout>} />
+        <Route path="/admin/users" element={<AuthenticatedLayout {...layoutProps}><AdminUserManagement /></AuthenticatedLayout>} />
+        <Route path="/admin/requests" element={<AuthenticatedLayout {...layoutProps}><AdminRequests /></AuthenticatedLayout>} />
       </Routes>
     </HashRouter>
   );
