@@ -321,11 +321,34 @@ export const dataService = {
     await this.updateUser(id, { status: s });
   },
 
-  async deleteUser(id: string): Promise<void> { 
+  async deleteUser(id: string): Promise<void> {
     if (isSupabaseConfigured) {
-      try { await supabase.from('users').delete().eq('id', id); } catch (e) {}
+      // 연관 데이터 먼저 삭제 (Foreign Key 제약 해소)
+      await supabase.from('leave_requests').delete().eq('userId', id);
+      await supabase.from('extra_work_reports').delete().eq('userId', id);
+      await supabase.from('notifications').delete().eq('userId', id);
+
+      const { error } = await supabase.from('users').delete().eq('id', id);
+      if (error) {
+        console.error('Supabase Delete Error:', error);
+        throw new Error(`삭제 실패: ${error.message}`);
+      }
     }
+    const localUsers = getLocal('friendly_users');
+    setLocal('friendly_users', localUsers.filter((u: any) => u.id !== id));
+  },
+
+  async resetAllLeaveData(): Promise<void> {
+    // 1. 모든 휴가 신청 삭제
+    if (isSupabaseConfigured) {
+      try { await supabase.from('leave_requests').delete().neq('id', '___impossible___'); } catch (e) {}
+    }
+    setLocal('friendly_requests', []);
+
+    // 2. 모든 유저의 usedLeave 초기화
     const users = await this.getUsers();
-    setLocal('friendly_users', users.filter(u => u.id !== id));
+    for (const user of users) {
+      await this.updateUser(user.id, { usedLeave: 0 });
+    }
   }
 };

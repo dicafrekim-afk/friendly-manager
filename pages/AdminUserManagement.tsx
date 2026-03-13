@@ -74,6 +74,20 @@ const AdminUserManagement: React.FC = () => {
     await fetchUsers();
   };
 
+  const handleResetLeaveData = async () => {
+    const first = window.confirm('⚠️ 모든 휴가 신청 내역이 삭제되고, 전원의 사용 연차가 0으로 초기화됩니다.\n\n계속하시겠습니까?');
+    if (!first) return;
+    const second = window.confirm('정말로 초기화하시겠습니까? 이 작업은 되돌릴 수 없습니다.');
+    if (!second) return;
+    try {
+      await dataService.resetAllLeaveData();
+      await fetchUsers();
+      alert('휴가 데이터 초기화 완료.');
+    } catch (e: any) {
+      alert(e.message || '초기화 중 오류가 발생했습니다.');
+    }
+  };
+
   const handleDeleteUser = async () => {
     if (!editingUser) return;
     if (isSuperAdmin(editingUser.email)) {
@@ -82,9 +96,13 @@ const AdminUserManagement: React.FC = () => {
     }
     
     if (window.confirm(`${editingUser.name} 님을 정말 삭제하시겠습니까? 삭제 후에는 복구할 수 없습니다.`)) {
-      await dataService.deleteUser(editingUser.id);
-      setEditingUser(null);
-      await fetchUsers();
+      try {
+        await dataService.deleteUser(editingUser.id);
+        setEditingUser(null);
+        await fetchUsers();
+      } catch (e: any) {
+        alert(e.message || '삭제 중 오류가 발생했습니다.');
+      }
     }
   };
 
@@ -101,9 +119,19 @@ const AdminUserManagement: React.FC = () => {
 
       <div className="flex items-end justify-between px-2">
         <h1 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tight">팀원 관리</h1>
-        <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-full border border-indigo-100">
-          Total: {users.length}
-        </span>
+        <div className="flex items-center gap-3">
+          {currentUser && isSuperAdmin(currentUser.email) && (
+            <button
+              onClick={handleResetLeaveData}
+              className="px-4 py-2 bg-red-50 text-red-500 text-[10px] font-black rounded-full border border-red-100 hover:bg-red-100 transition-colors"
+            >
+              휴가 데이터 초기화
+            </button>
+          )}
+          <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-full border border-indigo-100">
+            Total: {users.length}
+          </span>
+        </div>
       </div>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">

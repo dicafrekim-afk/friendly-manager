@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, LeaveRequest, Meeting } from '../types';
-import { dataService } from '../services/dataService';
+import { User, LeaveRequest, Meeting, LeaveType } from '../types';
+import { dataService, isSuperAdmin } from '../services/dataService';
 import { LEAVE_TYPE_COLORS, LEAVE_TYPE_LABELS } from '../constants';
 
 const KOREAN_HOLIDAYS = new Set([
@@ -44,11 +44,22 @@ const Dashboard: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [allRequests, setAllRequests] = useState<LeaveRequest[]>([]);
   const [allMeetings, setAllMeetings] = useState<Meeting[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(new Date().getDate());
   const [selectedEvent, setSelectedEvent] = useState<{type: 'REQ' | 'MEET', data: any} | null>(null);
+
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addForm, setAddForm] = useState<{
+    userId: string;
+    leaveType: LeaveType;
+    startDate: string;
+    endDate: string;
+    halfDayType: 'MORNING' | 'AFTERNOON';
+    reason: string;
+  }>({ userId: '', leaveType: 'VACATION', startDate: '', endDate: '', halfDayType: 'MORNING', reason: '' });
 
   const fetchData = async () => {
     const sessionStr = localStorage.getItem('friendly_current_session');
@@ -71,6 +82,7 @@ const Dashboard: React.FC = () => {
       
       setAllRequests(reqs.filter(r => r.status === 'APPROVED'));
       setAllMeetings(meetings || []);
+      setAllUsers(users || []);
       
       // 유저 정보 동기화 (세션 정보가 아닌 DB의 최신 정보로 업데이트)
       if (uId) {
@@ -131,6 +143,46 @@ const Dashboard: React.FC = () => {
     } catch (e) {
       alert('일정 취소 중 오류가 발생했습니다.');
     }
+  };
+
+  const isSuperAdm = currentUser ? isSuperAdmin(currentUser.email) : false;
+
+  const selectedDateStr = selectedDay
+    ? `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`
+    : '';
+
+  const openAddModal = () => {
+    setAddForm({ userId: '', leaveType: 'VACATION', startDate: selectedDateStr, endDate: selectedDateStr, halfDayType: 'MORNING', reason: '' });
+    setShowAddModal(true);
+  };
+
+  const handleAdminAddLeave = async () => {
+    if (!addForm.userId || !addForm.reason.trim()) {
+      alert('팀원과 사유를 입력하세요.');
+      return;
+    }
+    const selectedUser = allUsers.find(u => u.id === addForm.userId);
+    if (!selectedUser) return;
+
+    const endDate = addForm.leaveType === 'HALF_DAY' ? addForm.startDate : addForm.endDate;
+    const request: LeaveRequest = {
+      id: `req-admin-${Date.now()}`,
+      userId: selectedUser.id,
+      userName: selectedUser.name,
+      userTeam: selectedUser.team,
+      type: addForm.leaveType,
+      halfDayType: addForm.leaveType === 'HALF_DAY' ? addForm.halfDayType : undefined,
+      startDate: addForm.startDate,
+      endDate,
+      reason: addForm.reason,
+      status: 'PENDING_PL',
+      createdAt: new Date().toISOString(),
+      approverId: currentUser?.id
+    };
+
+    await dataService.createRequest(request);
+    setShowAddModal(false);
+    fetchData();
   };
 
   if (loading && !currentUser) return (
@@ -324,8 +376,18 @@ const Dashboard: React.FC = () => {
                 )}
              </div>
              
-             <div className="mt-8 pt-8 border-t border-slate-50 text-center">
-                <p className="text-[10px] font-bold text-slate-400">일정을 클릭하면 상세 내용을 확인하고 <br/>본인 일정을 취소할 수 있습니다.</p>
+             <div className="mt-8 pt-8 border-t border-slate-50">
+                {isSuperAdm && selectedDay ? (
+                  <button
+                    onClick={openAddModal}
+                    className="w-full py-3 bg-indigo-600 text-white rounded-2xl font-black text-xs shadow-lg hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4"/></svg>
+                    휴가 직접 입력
+                  </button>
+                ) : (
+                  <p className="text-[10px] font-bold text-slate-400 text-center">일정을 클릭하면 상세 내용을 확인하고 <br/>본인 일정을 취소할 수 있습니다.</p>
+                )}
              </div>
           </div>
         </div>
@@ -386,6 +448,120 @@ const Dashboard: React.FC = () => {
                  </div>
               </div>
            </div>
+        </div>
+      )}
+      {/* 관리자 휴가 직접 입력 모달 */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-[200] flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white w-full max-w-md rounded-t-[32px] md:rounded-[40px] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-10 md:slide-in-from-bottom-0 duration-300 max-h-[90vh] flex flex-col">
+            <div className="p-6 md:p-8 border-b flex justify-between items-center bg-slate-50/50 shrink-0">
+              <div>
+                <h3 className="text-lg font-black text-slate-900">휴가 직접 입력</h3>
+                <p className="text-[9px] font-bold text-indigo-500 mt-0.5">{selectedDateStr} 기준</p>
+              </div>
+              <button onClick={() => setShowAddModal(false)} className="p-2 text-slate-400 hover:text-slate-900 transition-colors">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+
+            <div className="p-6 md:p-8 space-y-5 overflow-y-auto scrollbar-hide">
+              <div className="px-4 py-3 bg-amber-50 border border-amber-100 rounded-2xl">
+                <p className="text-[10px] font-black text-amber-600">관리자 직접 입력 — 승인 절차 없이 즉시 반영됩니다.</p>
+              </div>
+
+              {/* 팀원 선택 */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">팀원 선택</label>
+                <select
+                  value={addForm.userId}
+                  onChange={e => setAddForm({...addForm, userId: e.target.value})}
+                  className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-2 border-slate-50 focus:border-indigo-600 focus:bg-white outline-none text-sm font-black appearance-none transition-all cursor-pointer"
+                >
+                  <option value="">팀원을 선택하세요</option>
+                  {allUsers.filter(u => u.status === 'APPROVED').sort((a, b) => a.team.localeCompare(b.team)).map(u => (
+                    <option key={u.id} value={u.id}>{u.name} ({u.team})</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 휴가 유형 */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">휴가 유형</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['VACATION', 'HALF_DAY', 'BUSINESS_TRIP', 'SICK_LEAVE', 'EXTRA_LEAVE', 'OTHER'] as LeaveType[]).map(type => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setAddForm({...addForm, leaveType: type})}
+                      className={`py-3 rounded-2xl border-2 text-[10px] font-black transition-all ${addForm.leaveType === type ? 'border-indigo-600 bg-indigo-50 text-indigo-600' : 'border-slate-100 text-slate-400 hover:border-slate-200'}`}
+                    >
+                      {LEAVE_TYPE_LABELS[type]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 반차 유형 (HALF_DAY일 때만) */}
+              {addForm.leaveType === 'HALF_DAY' && (
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">반차 구분</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button type="button" onClick={() => setAddForm({...addForm, halfDayType: 'MORNING'})} className={`py-3 rounded-2xl border-2 text-[11px] font-black transition-all ${addForm.halfDayType === 'MORNING' ? 'border-teal-500 bg-teal-50 text-teal-600' : 'border-slate-100 text-slate-400'}`}>오전 반차</button>
+                    <button type="button" onClick={() => setAddForm({...addForm, halfDayType: 'AFTERNOON'})} className={`py-3 rounded-2xl border-2 text-[11px] font-black transition-all ${addForm.halfDayType === 'AFTERNOON' ? 'border-teal-500 bg-teal-50 text-teal-600' : 'border-slate-100 text-slate-400'}`}>오후 반차</button>
+                  </div>
+                </div>
+              )}
+
+              {/* 기간 */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">시작일</label>
+                  <input
+                    type="date"
+                    value={addForm.startDate}
+                    onChange={e => setAddForm({...addForm, startDate: e.target.value, endDate: e.target.value})}
+                    className="w-full px-4 py-3 rounded-2xl bg-slate-50 border-2 border-slate-50 focus:border-indigo-600 focus:bg-white outline-none text-sm font-black transition-all"
+                  />
+                </div>
+                {addForm.leaveType !== 'HALF_DAY' && (
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">종료일</label>
+                    <input
+                      type="date"
+                      value={addForm.endDate}
+                      min={addForm.startDate}
+                      onChange={e => setAddForm({...addForm, endDate: e.target.value})}
+                      className="w-full px-4 py-3 rounded-2xl bg-slate-50 border-2 border-slate-50 focus:border-indigo-600 focus:bg-white outline-none text-sm font-black transition-all"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* 사유 */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">사유</label>
+                <textarea
+                  value={addForm.reason}
+                  onChange={e => setAddForm({...addForm, reason: e.target.value})}
+                  placeholder="휴가 사유를 입력하세요"
+                  rows={3}
+                  className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-2 border-slate-50 focus:border-indigo-600 focus:bg-white outline-none text-sm font-bold resize-none transition-all"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2 pb-2">
+                <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 py-4 text-xs font-black text-slate-400 bg-slate-100 rounded-2xl hover:bg-slate-200 transition-colors">취소</button>
+                <button
+                  type="button"
+                  onClick={handleAdminAddLeave}
+                  disabled={!addForm.userId || !addForm.reason.trim()}
+                  className={`flex-1 py-4 text-xs font-black rounded-2xl shadow-lg transition-all ${!addForm.userId || !addForm.reason.trim() ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
+                >
+                  즉시 등록
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
