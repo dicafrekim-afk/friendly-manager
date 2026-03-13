@@ -131,15 +131,14 @@ const Dashboard: React.FC = () => {
 
   const handleCancelEvent = async () => {
     if (!selectedEvent || !window.confirm('정말 이 일정을 취소하시겠습니까?')) return;
-    
+
     try {
       if (selectedEvent.type === 'REQ') {
         await dataService.deleteRequest(selectedEvent.data.id);
       } else {
         await dataService.deleteMeeting(selectedEvent.data.id);
       }
-      setSelectedEvent(null);
-      fetchData();
+      window.location.reload();
     } catch (e) {
       alert('일정 취소 중 오류가 발생했습니다.');
     }
@@ -175,14 +174,14 @@ const Dashboard: React.FC = () => {
       startDate: addForm.startDate,
       endDate,
       reason: addForm.reason,
-      status: 'PENDING_PL',
+      status: 'APPROVED',
       createdAt: new Date().toISOString(),
       approverId: currentUser?.id
     };
 
-    await dataService.createRequest(request);
+    await dataService.adminDirectCreateLeave(request);
     setShowAddModal(false);
-    fetchData();
+    await fetchData();
   };
 
   if (loading && !currentUser) return (
