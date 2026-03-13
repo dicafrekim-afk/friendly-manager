@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { LeaveType, LeaveRequest, User } from '../types';
+import { LeaveType, LeaveRequest, User, RewardLeaveGrant } from '../types';
 import { LEAVE_TYPE_LABELS } from '../constants';
 import { dataService } from '../services/dataService';
 import { aiService } from '../services/aiService';
@@ -15,6 +15,7 @@ const LeaveApplication: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [rewardGrants, setRewardGrants] = useState<RewardLeaveGrant[]>([]);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -23,7 +24,11 @@ const LeaveApplication: React.FC = () => {
          const u = JSON.parse(session);
          const users = await dataService.getUsers();
          const freshUser = users.find(x => x.id === u.id);
-         if (freshUser) setCurrentUser(freshUser);
+         if (freshUser) {
+           setCurrentUser(freshUser);
+           const grants = await dataService.getRewardLeaveGrants(freshUser.id);
+           setRewardGrants(grants);
+         }
        }
     };
     fetchUser();
@@ -98,9 +103,31 @@ const LeaveApplication: React.FC = () => {
             ))}
           </div>
           {type === 'EXTRA_LEAVE' && (
-             <div className="p-3 bg-violet-50 text-violet-600 rounded-xl text-[10px] font-black border border-violet-100">
-                보유 중인 보상 휴가: {(currentUser.extraLeaveAvailable || 0) - (currentUser.extraLeaveUsed || 0)}일
-             </div>
+            <div className="space-y-3">
+              <div className="p-3 bg-violet-50 text-violet-600 rounded-xl text-[10px] font-black border border-violet-100 flex justify-between items-center">
+                <span>보유 중인 보상 휴가: {(currentUser.extraLeaveAvailable || 0) - (currentUser.extraLeaveUsed || 0)}일</span>
+                <span className="text-violet-400">총 부여 {currentUser.extraLeaveAvailable || 0}일 / 사용 {currentUser.extraLeaveUsed || 0}일</span>
+              </div>
+              {rewardGrants.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">부여 이력</p>
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {rewardGrants.map(g => (
+                      <div key={g.id} className="flex items-start justify-between p-3 bg-violet-50/60 rounded-2xl border border-violet-100">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-black text-violet-700">{g.reason}</p>
+                          <p className="text-[9px] font-bold text-slate-400 mt-0.5">{g.grantedByName} · {new Date(g.grantedAt).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                        </div>
+                        <span className="ml-3 text-sm font-black text-violet-600 shrink-0">+{g.amount}일</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {rewardGrants.length === 0 && (
+                <p className="text-[10px] font-bold text-slate-300 text-center py-2">부여 이력이 없습니다.</p>
+              )}
+            </div>
           )}
           {type === 'HALF_DAY' && (
             <div className="space-y-3">

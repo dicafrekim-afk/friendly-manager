@@ -1,5 +1,5 @@
 
-import { User, LeaveRequest, Status, Notification, Meeting, Team, LeaveType, ExtraWorkReport } from '../types';
+import { User, LeaveRequest, Status, Notification, Meeting, Team, LeaveType, ExtraWorkReport, RewardLeaveGrant } from '../types';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { notificationService } from './notificationService';
 
@@ -355,6 +355,16 @@ export const dataService = {
     }
     const localUsers = getLocal('friendly_users');
     setLocal('friendly_users', localUsers.filter((u: any) => u.id !== id));
+  },
+
+  async getRewardLeaveGrants(userId: string): Promise<RewardLeaveGrant[]> {
+    const all = getLocal('friendly_reward_grants') as RewardLeaveGrant[];
+    return all.filter(g => g.userId === userId).sort((a, b) => b.grantedAt.localeCompare(a.grantedAt));
+  },
+
+  async createRewardLeaveGrant(grant: RewardLeaveGrant): Promise<void> {
+    const all = getLocal('friendly_reward_grants') as RewardLeaveGrant[];
+    setLocal('friendly_reward_grants', [...all, grant]);
   },
 
   async resetAllLeaveData(): Promise<void> {

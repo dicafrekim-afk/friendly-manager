@@ -65,6 +65,15 @@ export interface Meeting {
   participants: string[]; 
 }
 
+export interface RewardLeaveGrant {
+  id: string;
+  userId: string;
+  amount: number;
+  reason: string;
+  grantedByName: string;
+  grantedAt: string;
+}
+
 export interface Notification {
   id: string;
   userId: string;

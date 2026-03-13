@@ -66,6 +66,14 @@ const AdminUserManagement: React.FC = () => {
       extraLeaveAvailable: (editingUser.extraLeaveAvailable || 0) + rewardInput
     };
     await dataService.updateUser(editingUser.id, updated);
+    await dataService.createRewardLeaveGrant({
+      id: `rwg-${Date.now()}`,
+      userId: editingUser.id,
+      amount: rewardInput,
+      reason: rewardReason.trim() || '사유 없음',
+      grantedByName: currentUser?.name || '관리자',
+      grantedAt: new Date().toISOString()
+    });
     setEditingUser({ ...editingUser, ...updated });
     setRewardInput(0);
     setRewardReason('');
