@@ -135,7 +135,7 @@ const Dashboard: React.FC = () => {
     try {
       if (selectedEvent.type === 'REQ') {
         await dataService.deleteRequest(selectedEvent.data.id);
-        // 낙관적 업데이트: fetchData() 재조회 없이 즉시 state에서 제거
+        // Supabase 재조회 없이 localStorage 기반으로 즉시 상태 갱신
         setAllRequests(prev => prev.filter(r => r.id !== selectedEvent.data.id));
       } else {
         await dataService.deleteMeeting(selectedEvent.data.id);
@@ -143,15 +143,11 @@ const Dashboard: React.FC = () => {
       }
       setSelectedEvent(null);
 
-      // 연차 잔여 반영을 위해 users만 재조회 (leave_requests 재조회 시 Supabase 지연으로 이전 데이터가 올 수 있어 제외)
-      const updatedUsers = await dataService.getUsers();
-      setAllUsers(updatedUsers);
-      if (currentUser) {
-        const fresh = updatedUsers.find(u => u.id === currentUser.id);
-        if (fresh) {
-          setCurrentUser(fresh);
-          localStorage.setItem('friendly_current_session', JSON.stringify(fresh));
-        }
+      // deleteRequest 내부의 updateUser가 이미 localStorage 세션을 갱신했으므로 그대로 읽어 반영
+      const updatedSession = localStorage.getItem('friendly_current_session');
+      if (updatedSession) {
+        const fresh = JSON.parse(updatedSession);
+        setCurrentUser(fresh);
       }
     } catch (e) {
       alert('일정 취소 중 오류가 발생했습니다.');
