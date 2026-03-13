@@ -478,7 +478,7 @@ const Dashboard: React.FC = () => {
                   className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-2 border-slate-50 focus:border-indigo-600 focus:bg-white outline-none text-sm font-black appearance-none transition-all cursor-pointer"
                 >
                   <option value="">팀원을 선택하세요</option>
-                  {allUsers.filter(u => u.status === 'APPROVED').sort((a, b) => a.team.localeCompare(b.team)).map(u => (
+                  {allUsers.filter(u => u.status === 'APPROVED').sort((a, b) => (a.team || '').localeCompare(b.team || '')).map(u => (
                     <option key={u.id} value={u.id}>{u.name} ({u.team})</option>
                   ))}
                 </select>
