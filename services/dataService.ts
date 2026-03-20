@@ -154,9 +154,11 @@ export const dataService = {
     if (!user) return;
 
     if (req.type === 'EXTRA_LEAVE') {
-      await this.updateUser(user.id, { extraLeaveUsed: (user.extraLeaveUsed || 0) + days });
+      const newUsed = Math.round(((user.extraLeaveUsed || 0) + days) * 10) / 10;
+      await this.updateUser(user.id, { extraLeaveUsed: newUsed });
     } else if (req.type === 'VACATION' || req.type === 'HALF_DAY') {
-      await this.updateUser(user.id, { usedLeave: (user.usedLeave || 0) + days });
+      const newUsed = Math.round(((user.usedLeave || 0) + days) * 10) / 10;
+      await this.updateUser(user.id, { usedLeave: newUsed });
     }
   },
 
