@@ -9,6 +9,7 @@ const LeaveApplication: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [type, setType] = useState<LeaveType>('VACATION');
   const [halfDayType, setHalfDayType] = useState<'MORNING' | 'AFTERNOON'>('MORNING');
+  const [extraLeaveHalfDay, setExtraLeaveHalfDay] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [reason, setReason] = useState('');
@@ -40,13 +41,13 @@ const LeaveApplication: React.FC = () => {
 
   const diffDays = useMemo(() => {
     if (type === 'HALF_DAY') return 0.5;
-    if (type === 'EXTRA_LEAVE') return 1.0; // 보상휴가는 기본 1일 단위 사용 (또는 반차 처리 필요)
+    if (type === 'EXTRA_LEAVE') return extraLeaveHalfDay ? 0.5 : 1.0;
     if (!startDate || !endDate) return 0;
     const start = new Date(startDate);
     const end = new Date(endDate);
     if (start > end) return 0;
     return Math.ceil(Math.abs(end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-  }, [type, startDate, endDate]);
+  }, [type, startDate, endDate, extraLeaveHalfDay]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,6 +70,7 @@ const LeaveApplication: React.FC = () => {
         userTeam: currentUser.team,
         type,
         halfDayType: (type === 'HALF_DAY') ? halfDayType : undefined,
+        isHalfDay: (type === 'EXTRA_LEAVE') ? extraLeaveHalfDay : undefined,
         startDate,
         endDate,
         reason,
@@ -107,6 +109,14 @@ const LeaveApplication: React.FC = () => {
               <div className="p-3 bg-violet-50 text-violet-600 rounded-xl text-[10px] font-black border border-violet-100 flex justify-between items-center">
                 <span>보유 중인 보상 휴가: {(currentUser.extraLeaveAvailable || 0) - (currentUser.extraLeaveUsed || 0)}일</span>
                 <span className="text-violet-400">총 부여 {currentUser.extraLeaveAvailable || 0}일 / 사용 {currentUser.extraLeaveUsed || 0}일</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <button type="button" onClick={() => setExtraLeaveHalfDay(false)} className={`py-4 rounded-2xl text-[11px] font-black transition-all border-2 ${!extraLeaveHalfDay ? 'bg-indigo-600 text-white border-indigo-600 shadow-xl' : 'bg-slate-50 text-slate-400 border-transparent hover:border-slate-100'}`}>
+                  1일 사용
+                </button>
+                <button type="button" onClick={() => setExtraLeaveHalfDay(true)} className={`py-4 rounded-2xl text-[11px] font-black transition-all border-2 ${extraLeaveHalfDay ? 'bg-indigo-600 text-white border-indigo-600 shadow-xl' : 'bg-slate-50 text-slate-400 border-transparent hover:border-slate-100'}`}>
+                  반차 사용 (0.5일)
+                </button>
               </div>
               {rewardGrants.length > 0 && (
                 <div className="space-y-2">

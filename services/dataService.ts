@@ -28,8 +28,9 @@ const INITIAL_ADMIN: User = {
   joinDate: new Date().toISOString().split('T')[0]
 };
 
-const calculateLeaveDays = (type: LeaveType, startDate: string, endDate: string): number => {
+const calculateLeaveDays = (type: LeaveType, startDate: string, endDate: string, isHalfDay?: boolean): number => {
   if (type === 'HALF_DAY') return 0.5;
+  if (type === 'EXTRA_LEAVE' && isHalfDay) return 0.5;
   const start = new Date(startDate);
   const end = new Date(endDate);
   if (isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
@@ -147,7 +148,7 @@ export const dataService = {
   },
 
   async handleApprovedLeave(req: LeaveRequest): Promise<void> {
-    const days = calculateLeaveDays(req.type, req.startDate, req.endDate);
+    const days = calculateLeaveDays(req.type, req.startDate, req.endDate, req.isHalfDay);
     const users = await this.getUsers();
     const user = users.find(u => u.id === req.userId);
     if (!user) return;
@@ -164,7 +165,7 @@ export const dataService = {
     const target = reqs.find(r => r.id === requestId);
     
     if (target && target.status === 'APPROVED') {
-       const days = calculateLeaveDays(target.type, target.startDate, target.endDate);
+       const days = calculateLeaveDays(target.type, target.startDate, target.endDate, target.isHalfDay);
        const users = await this.getUsers();
        const user = users.find(u => u.id === target.userId);
        if (user) {
