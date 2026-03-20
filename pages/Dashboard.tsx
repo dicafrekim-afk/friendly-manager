@@ -442,7 +442,7 @@ const Dashboard: React.FC = () => {
                  </div>
 
                  <div className="flex flex-col gap-3 pt-4">
-                    {(selectedEvent.data.userId === currentUser?.id || selectedEvent.data.organizerId === currentUser?.id || (!isSuperAdm && currentUser?.role === 'ADMIN')) ? (
+                    {(selectedEvent.data.userId === currentUser?.id || selectedEvent.data.organizerId === currentUser?.id || isSuperAdm) ? (
                        <button
                         onClick={handleCancelEvent}
                         className="w-full py-4 bg-red-50 text-red-600 rounded-2xl font-black text-xs hover:bg-red-100 transition-all flex items-center justify-center gap-2"
