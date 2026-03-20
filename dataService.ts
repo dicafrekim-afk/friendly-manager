@@ -1,5 +1,5 @@
 
-import { User, LeaveRequest, Status, Notification, Meeting, Team, LeaveType, ExtraWorkReport } from '../types';
+import { User, LeaveRequest, Status, Notification, Meeting, Team, LeaveType, ExtraWorkReport, RewardLeaveGrant } from '../types';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { notificationService } from './notificationService';
 
@@ -28,8 +28,9 @@ const INITIAL_ADMIN: User = {
   joinDate: new Date().toISOString().split('T')[0]
 };
 
-const calculateLeaveDays = (type: LeaveType, startDate: string, endDate: string): number => {
+const calculateLeaveDays = (type: LeaveType, startDate: string, endDate: string, isHalfDay?: boolean): number => {
   if (type === 'HALF_DAY') return 0.5;
+  if (type === 'EXTRA_LEAVE' && isHalfDay) return 0.5;
   const start = new Date(startDate);
   const end = new Date(endDate);
   if (isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
@@ -111,11 +112,11 @@ export const dataService = {
     const sessionStr = localStorage.getItem('friendly_current_session');
     const currentUser: User = sessionStr ? JSON.parse(sessionStr) : null;
     let initialStatus: Status = isSuperAdmin(currentUser?.email || '') ? 'APPROVED' : (currentUser?.role === 'ADMIN' ? 'PENDING_FINAL' : 'PENDING_PL');
-    
+
     const finalRequest = { ...request, status: initialStatus };
     if (isSupabaseConfigured) {
-      try { 
-        const { error } = await supabase.from('leave_requests').insert([finalRequest]); 
+      try {
+        const { error } = await supabase.from('leave_requests').insert([finalRequest]);
         if (error) console.error("Supabase Create Request Error:", error);
       } catch (e) {}
     }
@@ -127,8 +128,27 @@ export const dataService = {
     notificationService.sendSlackLeaveNotification(finalRequest).catch(() => {});
   },
 
+  // 관리자가 팀원의 휴가를 직접 입력할 때 사용 — 승인 절차 없이 즉시 차감
+  async adminDirectCreateLeave(request: LeaveRequest): Promise<void> {
+    const finalRequest: LeaveRequest = { ...request, status: 'APPROVED' as Status };
+
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase.from('leave_requests').insert([finalRequest]);
+        if (error) console.error("Supabase Admin Direct Create Error:", error);
+      } catch (e) {}
+    }
+    const reqs = await this.getRequests();
+    setLocal('friendly_requests', [...reqs, finalRequest]);
+
+    // 반드시 차감 처리 (role/session 조건에 무관하게 항상 실행)
+    await this.handleApprovedLeave(finalRequest);
+
+    notificationService.sendSlackLeaveNotification(finalRequest).catch(() => {});
+  },
+
   async handleApprovedLeave(req: LeaveRequest): Promise<void> {
-    const days = calculateLeaveDays(req.type, req.startDate, req.endDate);
+    const days = calculateLeaveDays(req.type, req.startDate, req.endDate, req.isHalfDay);
     const users = await this.getUsers();
     const user = users.find(u => u.id === req.userId);
     if (!user) return;
@@ -145,7 +165,7 @@ export const dataService = {
     const target = reqs.find(r => r.id === requestId);
     
     if (target && target.status === 'APPROVED') {
-       const days = calculateLeaveDays(target.type, target.startDate, target.endDate);
+       const days = calculateLeaveDays(target.type, target.startDate, target.endDate, target.isHalfDay);
        const users = await this.getUsers();
        const user = users.find(u => u.id === target.userId);
        if (user) {
@@ -336,6 +356,16 @@ export const dataService = {
     }
     const localUsers = getLocal('friendly_users');
     setLocal('friendly_users', localUsers.filter((u: any) => u.id !== id));
+  },
+
+  async getRewardLeaveGrants(userId: string): Promise<RewardLeaveGrant[]> {
+    const all = getLocal('friendly_reward_grants') as RewardLeaveGrant[];
+    return all.filter(g => g.userId === userId).sort((a, b) => b.grantedAt.localeCompare(a.grantedAt));
+  },
+
+  async createRewardLeaveGrant(grant: RewardLeaveGrant): Promise<void> {
+    const all = getLocal('friendly_reward_grants') as RewardLeaveGrant[];
+    setLocal('friendly_reward_grants', [...all, grant]);
   },
 
   async resetAllLeaveData(): Promise<void> {

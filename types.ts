@@ -26,13 +26,14 @@ export interface LeaveRequest {
   id: string;
   userId: string;
   userName: string;
-  userTeam: Team; 
+  userTeam: Team;
   type: LeaveType;
   halfDayType?: 'MORNING' | 'AFTERNOON';
+  isHalfDay?: boolean; // 보상휴가 반차 여부 (EXTRA_LEAVE 0.5일 사용 시)
   startDate: string;
   endDate: string;
   reason: string;
-  status: Status; 
+  status: Status;
   approverId?: string;
   createdAt: string;
 }
