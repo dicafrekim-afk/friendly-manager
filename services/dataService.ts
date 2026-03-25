@@ -10,13 +10,21 @@ export const SUPER_ADMIN_EMAILS = [
   'dicafrekim@naver.com'
 ];
 
-export const isSuperAdmin = (email: string) => SUPER_ADMIN_EMAILS.includes(email?.toLowerCase().trim());
+// User 객체 또는 email 문자열로 Super Admin 여부 판별
+// DB의 isSuperAdmin 필드를 우선 확인하고, 없으면 이메일 목록으로 폴백
+export const isSuperAdmin = (userOrEmail: User | string): boolean => {
+  if (typeof userOrEmail === 'string') {
+    return SUPER_ADMIN_EMAILS.includes(userOrEmail?.toLowerCase().trim());
+  }
+  if (userOrEmail?.isSuperAdmin === true) return true;
+  return SUPER_ADMIN_EMAILS.includes(userOrEmail?.email?.toLowerCase().trim());
+};
 
 const INITIAL_ADMIN: User = {
   id: 'admin-001',
   email: SUPER_ADMIN_EMAILS[0],
-  password: 'admin1234', 
-  name: '김구현', 
+  password: 'admin1234',
+  name: '김구현',
   position: '최고관리자',
   team: '공통',
   role: 'ADMIN',
@@ -25,7 +33,8 @@ const INITIAL_ADMIN: User = {
   usedLeave: 0,
   extraLeaveAvailable: 0,
   extraLeaveUsed: 0,
-  joinDate: new Date().toISOString().split('T')[0]
+  joinDate: new Date().toISOString().split('T')[0],
+  isSuperAdmin: true,
 };
 
 const calculateLeaveDays = (type: LeaveType, startDate: string, endDate: string, isHalfDay?: boolean): number => {
@@ -111,7 +120,7 @@ export const dataService = {
   async createRequest(request: LeaveRequest): Promise<void> {
     const sessionStr = localStorage.getItem('friendly_current_session');
     const currentUser: User = sessionStr ? JSON.parse(sessionStr) : null;
-    let initialStatus: Status = isSuperAdmin(currentUser?.email || '') ? 'APPROVED' : (currentUser?.role === 'ADMIN' ? 'PENDING_FINAL' : 'PENDING_PL');
+    let initialStatus: Status = isSuperAdmin(currentUser) ? 'APPROVED' : (currentUser?.role === 'ADMIN' ? 'PENDING_FINAL' : 'PENDING_PL');
 
     const finalRequest = { ...request, status: initialStatus };
 

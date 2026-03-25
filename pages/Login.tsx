@@ -39,7 +39,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         if (user.password && user.password === password) {
           // 최고 관리자 명단에 있는 경우 세션 내 role을 ADMIN으로 보정하여 즉시 반영
           const sessionUser = { ...user };
-          if (isSuperAdmin(user.email)) {
+          if (isSuperAdmin(user)) {
             sessionUser.role = 'ADMIN';
             sessionUser.status = 'APPROVED'; // 최고관리자는 항상 승인 상태
           }

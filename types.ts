@@ -7,12 +7,12 @@ export type Team = '공채' | '경채' | '특정직' | '공통' | '위기대응'
 export interface User {
   id: string;
   email: string;
-  password: string; 
+  password: string;
   name: string;
   position: string;
-  team: Team; 
+  team: Team;
   role: Role;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED'; 
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
   totalLeave: number;
   usedLeave: number;
   extraLeaveAvailable: number; // 보유 보상 휴가
@@ -20,6 +20,7 @@ export interface User {
   joinDate: string;
   phone?: string;
   profileImage?: string;
+  isSuperAdmin?: boolean;      // Super Admin 여부 (DB 기반)
 }
 
 export interface LeaveRequest {

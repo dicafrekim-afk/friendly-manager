@@ -23,7 +23,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user, logout, isOpen, onClose }) => {
     { to: '/admin/users', label: '팀원 관리', icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />, superOnly: true },
   ];
 
-  const showAdminMenu = user.role === 'ADMIN' || isSuperAdmin(user.email);
+  const showAdminMenu = user.role === 'ADMIN' || isSuperAdmin(user);
 
   return (
     <aside className={`fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-slate-100 flex flex-col h-screen p-8 transition-transform duration-300 lg:static lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
@@ -42,7 +42,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user, logout, isOpen, onClose }) => {
           </NavLink>
         ))}
         {showAdminMenu && adminItems.map(item => {
-            if (item.superOnly && !isSuperAdmin(user.email)) return null;
+            if (item.superOnly && !isSuperAdmin(user)) return null;
             return (
               <NavLink key={item.to} to={item.to} onClick={onClose} className={({ isActive }) => `flex items-center gap-4 px-6 py-4 rounded-[20px] transition-all ${isActive ? 'bg-emerald-500 text-white shadow-xl shadow-emerald-100' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">{item.icon}</svg>

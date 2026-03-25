@@ -154,7 +154,7 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const isSuperAdm = currentUser ? isSuperAdmin(currentUser.email) : false;
+  const isSuperAdm = currentUser ? isSuperAdmin(currentUser) : false;
 
   const selectedDateStr = selectedDay
     ? `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`

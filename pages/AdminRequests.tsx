@@ -45,7 +45,7 @@ const AdminRequests: React.FC = () => {
           dataService.getExtraWorkReports()
         ]);
 
-        const isSuperAdm = isSuperAdmin(parsedUser.email);
+        const isSuperAdm = isSuperAdmin(parsedUser);
 
         if (isSuperAdm) {
           setRequests(allRequests || []);
@@ -74,7 +74,7 @@ const AdminRequests: React.FC = () => {
   const handleAction = async (id: string, action: 'APPROVE' | 'REJECT') => {
     if (!currentUser) return;
     const nextStatus = action === 'APPROVE'
-      ? (isSuperAdmin(currentUser.email) ? 'APPROVED' : 'PENDING_FINAL')
+      ? (isSuperAdmin(currentUser) ? 'APPROVED' : 'PENDING_FINAL')
       : 'REJECTED';
     await dataService.updateRequestStatus(id, nextStatus as any);
     fetchData();
@@ -83,7 +83,7 @@ const AdminRequests: React.FC = () => {
   const handleExtraAction = async (id: string, action: 'APPROVE' | 'REJECT') => {
     if (!currentUser) return;
     const nextStatus = action === 'APPROVE'
-      ? (isSuperAdmin(currentUser.email) ? 'APPROVED' : 'PENDING_FINAL')
+      ? (isSuperAdmin(currentUser) ? 'APPROVED' : 'PENDING_FINAL')
       : 'REJECTED';
     await dataService.updateExtraWorkStatus(id, nextStatus as any);
     fetchData();
@@ -104,7 +104,7 @@ const AdminRequests: React.FC = () => {
     </div>
   );
 
-  const isSuperAdm = isSuperAdmin(currentUser.email);
+  const isSuperAdm = isSuperAdmin(currentUser);
   const isPL = currentUser.role === 'ADMIN' && !isSuperAdm;
 
   // PL은 PENDING_PL 상태만, Super Admin은 PENDING_FINAL 상태만 액션 가능
