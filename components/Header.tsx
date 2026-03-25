@@ -17,15 +17,36 @@ const Header: React.FC<HeaderProps> = ({ user, onMenuToggle }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const isSearchPage = location.pathname === '/admin/requests';
-  const searchValue = isSearchPage ? (searchParams.get('q') || '') : '';
+  const [inputValue, setInputValue] = useState(isSearchPage ? (searchParams.get('q') || '') : '');
+  const [isComposing, setIsComposing] = useState(false);
 
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const q = e.target.value;
+  useEffect(() => {
+    if (isSearchPage) {
+      setInputValue(searchParams.get('q') || '');
+    } else {
+      setInputValue('');
+    }
+  }, [location.pathname]);
+
+  const applySearch = (q: string) => {
     if (q) {
       setSearchParams({ q });
     } else {
       setSearchParams({});
     }
+  };
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const q = e.target.value;
+    setInputValue(q);
+    if (!isComposing) applySearch(q);
+  };
+
+  const handleCompositionStart = () => setIsComposing(true);
+
+  const handleCompositionEnd = (e: React.CompositionEvent<HTMLInputElement>) => {
+    setIsComposing(false);
+    applySearch((e.target as HTMLInputElement).value);
   };
 
   useEffect(() => {
@@ -83,8 +104,10 @@ const Header: React.FC<HeaderProps> = ({ user, onMenuToggle }) => {
           <input
             type="text"
             placeholder={isSearchPage ? '이름 또는 팀으로 검색...' : 'Search team...'}
-            value={searchValue}
+            value={inputValue}
             onChange={handleSearch}
+            onCompositionStart={handleCompositionStart}
+            onCompositionEnd={handleCompositionEnd}
             disabled={!isSearchPage}
             className="block w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           />
