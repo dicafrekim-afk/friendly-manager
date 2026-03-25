@@ -115,17 +115,17 @@ export const dataService = {
 
     const finalRequest = { ...request, status: initialStatus };
 
-    // localStorage에 먼저 저장 (Supabase 실패 시 폴백 보장)
-    const localReqs = getLocal('friendly_requests');
-    setLocal('friendly_requests', [...localReqs, finalRequest]);
-
-    // Supabase에도 동기화
     if (isSupabaseConfigured) {
-      try {
-        const { error } = await supabase.from('leave_requests').insert([finalRequest]);
-        if (error) console.error("Supabase Create Request Error:", error);
-      } catch (e) {}
+      const { error } = await supabase.from('leave_requests').insert([finalRequest]);
+      if (error) {
+        console.error("Supabase Create Request Error:", error);
+        throw new Error(`휴가 신청 저장 실패: ${error.message}`);
+      }
+    } else {
+      const localReqs = getLocal('friendly_requests');
+      setLocal('friendly_requests', [...localReqs, finalRequest]);
     }
+
     if (initialStatus === 'APPROVED') await this.handleApprovedLeave(finalRequest);
 
     // 슬랙 알림 전송 (비동기, 실패해도 신청 처리에 영향 없음)
