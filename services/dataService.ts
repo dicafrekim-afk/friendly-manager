@@ -11,13 +11,13 @@ export const SUPER_ADMIN_EMAILS = [
 ];
 
 // User 객체 또는 email 문자열로 Super Admin 여부 판별
-// DB의 isSuperAdmin 필드를 우선 확인하고, 없으면 이메일 목록으로 폴백
+// User 객체: DB의 isSuperAdmin 필드만 확인 (이메일 목록 폴백 없음)
+// 문자열(email): 이메일 목록으로 확인 (로그인 전 등 User 객체 없는 경우 한정)
 export const isSuperAdmin = (userOrEmail: User | string): boolean => {
   if (typeof userOrEmail === 'string') {
     return SUPER_ADMIN_EMAILS.includes(userOrEmail?.toLowerCase().trim());
   }
-  if (userOrEmail?.isSuperAdmin === true) return true;
-  return SUPER_ADMIN_EMAILS.includes(userOrEmail?.email?.toLowerCase().trim());
+  return userOrEmail?.isSuperAdmin === true;
 };
 
 const INITIAL_ADMIN: User = {
