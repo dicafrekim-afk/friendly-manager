@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { LeaveRequest, User, ExtraWorkReport } from '../types';
 import { LEAVE_TYPE_LABELS, LEAVE_TYPE_COLORS } from '../constants';
 import { dataService, isSuperAdmin } from '../services/dataService';
@@ -10,6 +11,25 @@ const AdminRequests: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [tab, setTab] = useState<'LEAVE' | 'WORK'>('LEAVE');
+  const [searchParams] = useSearchParams();
+
+  const searchQuery = searchParams.get('q')?.trim().toLowerCase() || '';
+
+  const filteredRequests = useMemo(() => {
+    if (!searchQuery) return requests;
+    return requests.filter(r =>
+      r.userName?.toLowerCase().includes(searchQuery) ||
+      r.userTeam?.toLowerCase().includes(searchQuery)
+    );
+  }, [requests, searchQuery]);
+
+  const filteredExtraReports = useMemo(() => {
+    if (!searchQuery) return extraReports;
+    return extraReports.filter(r =>
+      r.userName?.toLowerCase().includes(searchQuery) ||
+      r.userTeam?.toLowerCase().includes(searchQuery)
+    );
+  }, [extraReports, searchQuery]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -112,17 +132,24 @@ const AdminRequests: React.FC = () => {
            <p className="text-xs md:text-sm font-bold text-slate-400 mt-1">팀원들의 모든 요청을 실시간으로 관리하세요.</p>
         </div>
         <div className="flex bg-slate-100 p-1.5 rounded-[22px] shadow-inner w-full lg:w-auto overflow-x-auto scrollbar-hide">
-           <button onClick={() => handleTabChange('LEAVE')} className={`flex-1 lg:flex-none px-6 py-3 rounded-2xl text-[11px] font-black transition-all whitespace-nowrap ${tab === 'LEAVE' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>휴가/출장 ({requests.length})</button>
+           <button onClick={() => handleTabChange('LEAVE')} className={`flex-1 lg:flex-none px-6 py-3 rounded-2xl text-[11px] font-black transition-all whitespace-nowrap ${tab === 'LEAVE' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
+             휴가/출장 ({searchQuery ? `${filteredRequests.length}/` : ''}{requests.length})
+           </button>
         </div>
       </div>
 
       {tab === 'LEAVE' && (
         <div className="space-y-4 md:space-y-0">
+          {searchQuery && (
+            <p className="text-xs font-bold text-slate-400 px-1">
+              "{searchParams.get('q')}" 검색 결과 {filteredRequests.length}건
+            </p>
+          )}
           <div className="grid grid-cols-1 gap-4 md:hidden">
-            {requests.length === 0 ? (
+            {filteredRequests.length === 0 ? (
               <div className="bg-white p-12 rounded-[32px] text-center border border-slate-100 italic text-slate-300 text-sm">신청 내역이 없습니다.</div>
             ) : (
-              requests.map(req => (
+              filteredRequests.map(req => (
                 <div key={req.id} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm space-y-4">
                   <div className="flex justify-between items-start">
                     <div>
@@ -160,10 +187,10 @@ const AdminRequests: React.FC = () => {
                    </tr>
                  </thead>
                  <tbody className="divide-y divide-slate-50">
-                    {requests.length === 0 ? (
+                    {filteredRequests.length === 0 ? (
                       <tr><td colSpan={5} className="px-8 py-20 text-center italic text-slate-300 text-sm">신청 내역이 없습니다.</td></tr>
                     ) : (
-                      requests.map(req => (
+                      filteredRequests.map(req => (
                         <tr key={req.id} className="hover:bg-slate-50 transition-colors">
                            <td className="px-8 py-6"><p className="text-sm font-black text-slate-900">{req.userName}</p><p className="text-[9px] font-bold text-slate-400">{req.userTeam}</p></td>
                            <td className="px-8 py-6"><span className={`px-2 py-1 rounded text-[9px] font-black border ${LEAVE_TYPE_COLORS[req.type]}`}>{LEAVE_TYPE_LABELS[req.type]}</span></td>
@@ -189,11 +216,16 @@ const AdminRequests: React.FC = () => {
 
       {tab === 'WORK' && (
         <div className="space-y-4 md:space-y-0">
+          {searchQuery && (
+            <p className="text-xs font-bold text-slate-400 px-1">
+              "{searchParams.get('q')}" 검색 결과 {filteredExtraReports.length}건
+            </p>
+          )}
           <div className="grid grid-cols-1 gap-4 md:hidden">
-            {extraReports.length === 0 ? (
+            {filteredExtraReports.length === 0 ? (
               <div className="bg-white p-12 rounded-[32px] text-center border border-slate-100 italic text-slate-300 text-sm">보고 내역이 없습니다.</div>
             ) : (
-              extraReports.map(rep => (
+              filteredExtraReports.map(rep => (
                 <div key={rep.id} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm space-y-4">
                   <div className="flex justify-between items-start">
                     <div><h3 className="text-sm font-black text-slate-900">{rep.userName}</h3><p className="text-[10px] font-bold text-slate-400">{rep.workDate}</p></div>
@@ -225,10 +257,10 @@ const AdminRequests: React.FC = () => {
                    </tr>
                  </thead>
                  <tbody className="divide-y divide-slate-50">
-                    {extraReports.length === 0 ? (
+                    {filteredExtraReports.length === 0 ? (
                       <tr><td colSpan={5} className="px-8 py-20 text-center italic text-slate-300 text-sm">보고 내역이 없습니다.</td></tr>
                     ) : (
-                      extraReports.map(rep => (
+                      filteredExtraReports.map(rep => (
                         <tr key={rep.id} className="hover:bg-slate-50 transition-colors">
                            <td className="px-8 py-6"><p className="text-sm font-black text-slate-900">{rep.userName}</p><p className="text-[10px] font-bold text-slate-400">{rep.workDate}</p></td>
                            <td className="px-8 py-6"><span className={`px-2 py-1 rounded text-[9px] font-black border ${rep.workType === 'WEEKEND' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-violet-50 text-violet-600 border-violet-100'}`}>{rep.workType === 'WEEKEND' ? '주말 근무' : '철야 근무'}</span></td>

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { User, Notification } from '../types';
 import { dataService } from '../services/dataService';
 
@@ -11,8 +11,22 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ user, onMenuToggle }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  const isSearchPage = location.pathname === '/admin/requests';
+  const searchValue = isSearchPage ? (searchParams.get('q') || '') : '';
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const q = e.target.value;
+    if (q) {
+      setSearchParams({ q });
+    } else {
+      setSearchParams({});
+    }
+  };
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -68,8 +82,11 @@ const Header: React.FC<HeaderProps> = ({ user, onMenuToggle }) => {
           </span>
           <input
             type="text"
-            placeholder="Search team..."
-            className="block w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+            placeholder={isSearchPage ? '이름 또는 팀으로 검색...' : 'Search team...'}
+            value={searchValue}
+            onChange={handleSearch}
+            disabled={!isSearchPage}
+            className="block w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           />
         </div>
       </div>
