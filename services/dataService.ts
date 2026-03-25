@@ -114,14 +114,18 @@ export const dataService = {
     let initialStatus: Status = isSuperAdmin(currentUser?.email || '') ? 'APPROVED' : (currentUser?.role === 'ADMIN' ? 'PENDING_FINAL' : 'PENDING_PL');
 
     const finalRequest = { ...request, status: initialStatus };
+
+    // localStorage에 먼저 저장 (Supabase 실패 시 폴백 보장)
+    const localReqs = getLocal('friendly_requests');
+    setLocal('friendly_requests', [...localReqs, finalRequest]);
+
+    // Supabase에도 동기화
     if (isSupabaseConfigured) {
       try {
         const { error } = await supabase.from('leave_requests').insert([finalRequest]);
         if (error) console.error("Supabase Create Request Error:", error);
       } catch (e) {}
     }
-    const reqs = await this.getRequests();
-    setLocal('friendly_requests', [...reqs, finalRequest]);
     if (initialStatus === 'APPROVED') await this.handleApprovedLeave(finalRequest);
 
     // 슬랙 알림 전송 (비동기, 실패해도 신청 처리에 영향 없음)
@@ -132,14 +136,16 @@ export const dataService = {
   async adminDirectCreateLeave(request: LeaveRequest): Promise<void> {
     const finalRequest: LeaveRequest = { ...request, status: 'APPROVED' as Status };
 
+    // localStorage에 먼저 저장 (Supabase 실패 시 폴백 보장)
+    const localReqs = getLocal('friendly_requests');
+    setLocal('friendly_requests', [...localReqs, finalRequest]);
+
     if (isSupabaseConfigured) {
       try {
         const { error } = await supabase.from('leave_requests').insert([finalRequest]);
         if (error) console.error("Supabase Admin Direct Create Error:", error);
       } catch (e) {}
     }
-    const reqs = await this.getRequests();
-    setLocal('friendly_requests', [...reqs, finalRequest]);
 
     // 반드시 차감 처리 (role/session 조건에 무관하게 항상 실행)
     await this.handleApprovedLeave(finalRequest);
