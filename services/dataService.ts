@@ -139,6 +139,15 @@ export const dataService = {
 
     // 슬랙 알림 전송 (비동기, 실패해도 신청 처리에 영향 없음)
     notificationService.sendSlackLeaveNotification(finalRequest).catch(() => {});
+
+    // 관리자에게 이메일 알림 (비동기)
+    this.getUsers().then(users => {
+      const adminEmails = users
+        .filter(u => u.status === 'APPROVED' && (isSuperAdmin(u) || (u.role === 'ADMIN' && u.team === finalRequest.userTeam)))
+        .map(u => u.email)
+        .filter(Boolean) as string[];
+      notificationService.sendLeaveRequestEmailToAdmins(finalRequest, adminEmails).catch(() => {});
+    }).catch(() => {});
   },
 
   // 관리자가 팀원의 휴가를 직접 입력할 때 사용 — 승인 절차 없이 즉시 차감
@@ -211,6 +220,13 @@ export const dataService = {
       await this.handleApprovedLeave(target);
       // 최종 승인 시 슬랙 알림 (신청자에게)
       notificationService.sendSlackApprovalNotification(target).catch(() => {});
+      // 최종 승인 시 신청자에게 이메일 알림 (비동기)
+      this.getUsers().then(users => {
+        const user = users.find(u => u.id === target.userId);
+        if (user?.email) {
+          notificationService.sendApprovalEmailToUser(target, user.email).catch(() => {});
+        }
+      }).catch(() => {});
     }
   },
 
