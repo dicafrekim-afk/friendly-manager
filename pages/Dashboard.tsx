@@ -80,7 +80,7 @@ const Dashboard: React.FC = () => {
         dataService.getMeetings().catch(() => [])
       ]);
       
-      setAllRequests(reqs.filter(r => r.status === 'APPROVED'));
+      setAllRequests(reqs);
       setAllMeetings(meetings || []);
       setAllUsers(users || []);
       
@@ -124,7 +124,7 @@ const Dashboard: React.FC = () => {
 
   const getEventsForDate = useCallback((day: number) => {
     const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const dailyRequests = allRequests.filter(req => dateStr >= req.startDate && dateStr <= req.endDate);
+    const dailyRequests = allRequests.filter(req => req.status === 'APPROVED' && dateStr >= req.startDate && dateStr <= req.endDate);
     const dailyMeetings = (allMeetings || []).filter(m => m.startTime && m.startTime.startsWith(dateStr));
     return { requests: dailyRequests, meetings: dailyMeetings };
   }, [currentDate, allRequests, allMeetings]);
