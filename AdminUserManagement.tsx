@@ -66,6 +66,14 @@ const AdminUserManagement: React.FC = () => {
       extraLeaveAvailable: (editingUser.extraLeaveAvailable || 0) + rewardInput
     };
     await dataService.updateUser(editingUser.id, updated);
+    await dataService.createRewardLeaveGrant({
+      id: `rwg-${Date.now()}`,
+      userId: editingUser.id,
+      amount: rewardInput,
+      reason: rewardReason.trim() || '사유 없음',
+      grantedByName: currentUser?.name || '관리자',
+      grantedAt: new Date().toISOString()
+    });
     setEditingUser({ ...editingUser, ...updated });
     setRewardInput(0);
     setRewardReason('');
@@ -90,7 +98,7 @@ const AdminUserManagement: React.FC = () => {
 
   const handleDeleteUser = async () => {
     if (!editingUser) return;
-    if (isSuperAdmin(editingUser.email)) {
+    if (isSuperAdmin(editingUser)) {
       alert('최고관리자 계정은 삭제할 수 없습니다.');
       return;
     }
@@ -120,7 +128,7 @@ const AdminUserManagement: React.FC = () => {
       <div className="flex items-end justify-between px-2">
         <h1 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tight">팀원 관리</h1>
         <div className="flex items-center gap-3">
-          {currentUser && isSuperAdmin(currentUser.email) && (
+          {currentUser && isSuperAdmin(currentUser) && (
             <button
               onClick={handleResetLeaveData}
               className="px-4 py-2 bg-red-50 text-red-500 text-[10px] font-black rounded-full border border-red-100 hover:bg-red-100 transition-colors"
@@ -136,7 +144,7 @@ const AdminUserManagement: React.FC = () => {
       
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         {users.map(u => {
-          const userIsSuper = isSuperAdmin(u.email);
+          const userIsSuper = isSuperAdmin(u);
           return (
             <div 
               key={u.id} 
@@ -219,7 +227,7 @@ const AdminUserManagement: React.FC = () => {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-lg font-black text-slate-900">{editingUser.name}</p>
-                    {isSuperAdmin(editingUser.email) && (
+                    {isSuperAdmin(editingUser) && (
                       <span className="px-2 py-0.5 bg-slate-900 text-white text-[9px] font-black rounded-full">SYSTEM SUPER ADMIN</span>
                     )}
                   </div>
@@ -252,20 +260,30 @@ const AdminUserManagement: React.FC = () => {
                 </div>
               </div>
 
-              {!isSuperAdmin(editingUser.email) ? (
-                <div className="space-y-3">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">권한 설정</label>
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">권한 설정</label>
+                {!isSuperAdmin(editingUser) ? (
                   <div className="grid grid-cols-2 gap-3">
-                    <button type="button" onClick={() => setEditingUser({...editingUser, role: 'USER'})} className={`py-4 rounded-2xl border-2 text-[11px] font-black transition-all ${editingUser.role === 'USER' ? 'border-indigo-600 bg-indigo-50 text-indigo-600' : 'border-slate-100 text-slate-400 hover:border-slate-200'}`}>USER (팀원)</button>
-                    <button type="button" onClick={() => setEditingUser({...editingUser, role: 'ADMIN'})} className={`py-4 rounded-2xl border-2 text-[11px] font-black transition-all ${editingUser.role === 'ADMIN' ? 'border-amber-500 bg-amber-50 text-amber-600' : 'border-slate-100 text-slate-400 hover:border-slate-200'}`}>PL (팀장)</button>
+                    <button type="button" onClick={() => setEditingUser({...editingUser, role: 'USER', isSuperAdmin: false})} className={`py-4 rounded-2xl border-2 text-[11px] font-black transition-all ${editingUser.role === 'USER' ? 'border-indigo-600 bg-indigo-50 text-indigo-600' : 'border-slate-100 text-slate-400 hover:border-slate-200'}`}>USER (팀원)</button>
+                    <button type="button" onClick={() => setEditingUser({...editingUser, role: 'ADMIN', isSuperAdmin: false})} className={`py-4 rounded-2xl border-2 text-[11px] font-black transition-all ${editingUser.role === 'ADMIN' && !editingUser.isSuperAdmin ? 'border-amber-500 bg-amber-50 text-amber-600' : 'border-slate-100 text-slate-400 hover:border-slate-200'}`}>PL (팀장)</button>
                   </div>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">권한</label>
-                   <div className="px-5 py-4 rounded-2xl bg-slate-900 text-white text-xs font-black text-center uppercase tracking-widest">Master Authority</div>
-                </div>
-              )}
+                ) : (
+                  <div className="px-5 py-4 rounded-2xl bg-slate-900 text-white text-xs font-black text-center uppercase tracking-widest">Master Authority</div>
+                )}
+                {currentUser && isSuperAdmin(currentUser) && currentUser.id !== editingUser.id && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const granting = !editingUser.isSuperAdmin;
+                      if (!confirm(granting ? `${editingUser.name}에게 Super Admin 권한을 부여하시겠습니까?` : `${editingUser.name}의 Super Admin 권한을 해제하시겠습니까?`)) return;
+                      setEditingUser({...editingUser, isSuperAdmin: granting, role: 'ADMIN'});
+                    }}
+                    className={`w-full py-3 rounded-2xl border-2 text-[11px] font-black transition-all ${editingUser.isSuperAdmin ? 'border-red-200 bg-red-50 text-red-500 hover:bg-red-100' : 'border-slate-200 text-slate-400 hover:border-slate-900 hover:text-slate-900'}`}
+                  >
+                    {editingUser.isSuperAdmin ? 'Super Admin 해제' : 'Super Admin 부여'}
+                  </button>
+                )}
+              </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -278,7 +296,7 @@ const AdminUserManagement: React.FC = () => {
                 </div>
               </div>
 
-              {currentUser && isSuperAdmin(currentUser.email) && (
+              {currentUser && isSuperAdmin(currentUser) && (
                 <div className="space-y-4 p-5 bg-violet-50 rounded-3xl border border-violet-100">
                   <div className="flex items-center justify-between">
                     <label className="text-[10px] font-black text-violet-500 uppercase tracking-widest">보상휴가 부여</label>
@@ -332,7 +350,7 @@ const AdminUserManagement: React.FC = () => {
                   <button type="submit" className="flex-1 py-4 text-xs font-black text-white bg-indigo-600 rounded-2xl shadow-lg hover:bg-indigo-700 transition-all">정보 저장</button>
                 </div>
                 
-                {!isSuperAdmin(editingUser.email) && (
+                {!isSuperAdmin(editingUser) && (
                   <button 
                     type="button" 
                     onClick={handleDeleteUser}

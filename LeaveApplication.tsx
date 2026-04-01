@@ -55,7 +55,11 @@ const LeaveApplication: React.FC = () => {
     
     if (type === 'EXTRA_LEAVE') {
        const available = (currentUser.extraLeaveAvailable || 0) - (currentUser.extraLeaveUsed || 0);
-       if (available < diffDays) {
+       const allRequests = await dataService.getRequests();
+       const pendingDays = allRequests
+         .filter(r => r.userId === currentUser.id && r.type === 'EXTRA_LEAVE' && ['PENDING', 'PENDING_PL', 'PENDING_FINAL'].includes(r.status))
+         .reduce((sum, r) => sum + (r.isHalfDay ? 0.5 : 1.0), 0);
+       if (available - pendingDays < diffDays) {
           alert('보유하신 보상 휴가가 부족합니다.');
           return;
        }

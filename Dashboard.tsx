@@ -80,7 +80,7 @@ const Dashboard: React.FC = () => {
         dataService.getMeetings().catch(() => [])
       ]);
       
-      setAllRequests(reqs.filter(r => r.status === 'APPROVED'));
+      setAllRequests(reqs);
       setAllMeetings(meetings || []);
       setAllUsers(users || []);
       
@@ -124,7 +124,7 @@ const Dashboard: React.FC = () => {
 
   const getEventsForDate = useCallback((day: number) => {
     const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const dailyRequests = allRequests.filter(req => dateStr >= req.startDate && dateStr <= req.endDate);
+    const dailyRequests = allRequests.filter(req => req.status === 'APPROVED' && dateStr >= req.startDate && dateStr <= req.endDate);
     const dailyMeetings = (allMeetings || []).filter(m => m.startTime && m.startTime.startsWith(dateStr));
     return { requests: dailyRequests, meetings: dailyMeetings };
   }, [currentDate, allRequests, allMeetings]);
@@ -154,7 +154,7 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const isSuperAdm = currentUser ? isSuperAdmin(currentUser.email) : false;
+  const isSuperAdm = currentUser ? isSuperAdmin(currentUser) : false;
 
   const selectedDateStr = selectedDay
     ? `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`
@@ -442,8 +442,8 @@ const Dashboard: React.FC = () => {
                  </div>
 
                  <div className="flex flex-col gap-3 pt-4">
-                    {(selectedEvent.data.userId === currentUser?.id || selectedEvent.data.organizerId === currentUser?.id) ? (
-                       <button 
+                    {(selectedEvent.data.userId === currentUser?.id || selectedEvent.data.organizerId === currentUser?.id || isSuperAdm) ? (
+                       <button
                         onClick={handleCancelEvent}
                         className="w-full py-4 bg-red-50 text-red-600 rounded-2xl font-black text-xs hover:bg-red-100 transition-all flex items-center justify-center gap-2"
                        >
@@ -451,7 +451,7 @@ const Dashboard: React.FC = () => {
                           일정 취소하기
                        </button>
                     ) : (
-                       <p className="text-[10px] font-bold text-slate-300 text-center italic">타인의 일정은 관리자만 취소할 수 있습니다.</p>
+                       <p className="text-[10px] font-bold text-slate-300 text-center italic">본인의 일정만 취소할 수 있습니다.</p>
                     )}
                     <button onClick={() => setSelectedEvent(null)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-xs shadow-xl">닫기</button>
                  </div>
