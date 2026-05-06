@@ -175,6 +175,17 @@ const Dashboard: React.FC = () => {
     const selectedUser = allUsers.find(u => u.id === addForm.userId);
     if (!selectedUser) return;
 
+    if (addForm.leaveType === 'VACATION' || addForm.leaveType === 'HALF_DAY') {
+      const remaining = (selectedUser.totalLeave || 0) - (selectedUser.usedLeave || 0);
+      const required = addForm.leaveType === 'HALF_DAY'
+        ? 0.5
+        : Math.ceil(Math.abs(new Date(addForm.endDate).getTime() - new Date(addForm.startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      if (remaining < required) {
+        alert(`잔여 연차가 부족합니다. (잔여: ${remaining}일, 신청: ${required}일)`);
+        return;
+      }
+    }
+
     if (addForm.leaveType === 'EXTRA_LEAVE') {
       const remaining = (selectedUser.extraLeaveAvailable || 0) - (selectedUser.extraLeaveUsed || 0);
       const required = addForm.extraLeaveHalfDay ? 0.5 : 1.0;
@@ -515,16 +526,36 @@ const Dashboard: React.FC = () => {
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">휴가 유형</label>
                 <div className="grid grid-cols-3 gap-2">
-                  {(['VACATION', 'HALF_DAY', 'BUSINESS_TRIP', 'SICK_LEAVE', 'EXTRA_LEAVE', 'OTHER'] as LeaveType[]).map(type => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => setAddForm({...addForm, leaveType: type})}
-                      className={`py-3 rounded-2xl border-2 text-[10px] font-black transition-all ${addForm.leaveType === type ? 'border-indigo-600 bg-indigo-50 text-indigo-600' : 'border-slate-100 text-slate-400 hover:border-slate-200'}`}
-                    >
-                      {LEAVE_TYPE_LABELS[type]}
-                    </button>
-                  ))}
+                  {(['VACATION', 'HALF_DAY', 'BUSINESS_TRIP', 'SICK_LEAVE', 'EXTRA_LEAVE', 'OTHER'] as LeaveType[]).map(t => {
+                    const selectedUser = allUsers.find(u => u.id === addForm.userId);
+                    let badge: string | null = null;
+                    if (selectedUser) {
+                      if (t === 'VACATION' || t === 'HALF_DAY') {
+                        const rem = (selectedUser.totalLeave || 0) - (selectedUser.usedLeave || 0);
+                        badge = `${rem}일`;
+                      } else if (t === 'EXTRA_LEAVE') {
+                        const rem = (selectedUser.extraLeaveAvailable || 0) - (selectedUser.extraLeaveUsed || 0);
+                        badge = `${rem}일`;
+                      }
+                    }
+                    const isSelected = addForm.leaveType === t;
+                    const badgeNegative = badge !== null && parseFloat(badge) <= 0;
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setAddForm({...addForm, leaveType: t})}
+                        className={`py-3 rounded-2xl border-2 text-[10px] font-black transition-all flex flex-col items-center gap-0.5 ${isSelected ? 'border-indigo-600 bg-indigo-50 text-indigo-600' : 'border-slate-100 text-slate-400 hover:border-slate-200'}`}
+                      >
+                        <span>{LEAVE_TYPE_LABELS[t]}</span>
+                        {badge !== null && (
+                          <span className={`text-[9px] font-black ${isSelected ? 'text-indigo-400' : badgeNegative ? 'text-red-400' : 'text-slate-300'}`}>
+                            {badge}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
