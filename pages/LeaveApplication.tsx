@@ -10,6 +10,7 @@ const LeaveApplication: React.FC = () => {
   const [type, setType] = useState<LeaveType>('VACATION');
   const [halfDayType, setHalfDayType] = useState<'MORNING' | 'AFTERNOON'>('MORNING');
   const [extraLeaveHalfDay, setExtraLeaveHalfDay] = useState(false);
+  const [extraLeaveHalfDayType, setExtraLeaveHalfDayType] = useState<'MORNING' | 'AFTERNOON'>('MORNING');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [reason, setReason] = useState('');
@@ -38,6 +39,11 @@ const LeaveApplication: React.FC = () => {
   useEffect(() => {
     if ((type === 'HALF_DAY' || type === 'EXTRA_LEAVE') && startDate) setEndDate(startDate);
   }, [type, startDate]);
+
+  const remainingExtraLeave = useMemo(() => {
+    if (!currentUser) return 0;
+    return Math.max(0, (currentUser.extraLeaveAvailable || 0) - (currentUser.extraLeaveUsed || 0));
+  }, [currentUser]);
 
   const diffDays = useMemo(() => {
     if (type === 'HALF_DAY') return 0.5;
@@ -73,7 +79,7 @@ const LeaveApplication: React.FC = () => {
         userName: currentUser.name,
         userTeam: currentUser.team,
         type,
-        halfDayType: (type === 'HALF_DAY') ? halfDayType : undefined,
+        halfDayType: type === 'HALF_DAY' ? halfDayType : (type === 'EXTRA_LEAVE' && extraLeaveHalfDay ? extraLeaveHalfDayType : undefined),
         isHalfDay: (type === 'EXTRA_LEAVE') ? extraLeaveHalfDay : undefined,
         startDate,
         endDate,
@@ -122,6 +128,23 @@ const LeaveApplication: React.FC = () => {
                   반차 사용 (0.5일)
                 </button>
               </div>
+              {extraLeaveHalfDay && (
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">반차 구분</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(['MORNING', 'AFTERNOON'] as const).map(t => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setExtraLeaveHalfDayType(t)}
+                        className={`py-4 rounded-2xl text-[11px] font-black transition-all border-2 ${extraLeaveHalfDayType === t ? 'bg-violet-600 text-white border-violet-600 shadow-xl' : 'bg-slate-50 text-slate-400 border-transparent hover:border-slate-100'}`}
+                      >
+                        {t === 'MORNING' ? '오전 반차' : '오후 반차'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {rewardGrants.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">부여 이력</p>
@@ -181,8 +204,17 @@ const LeaveApplication: React.FC = () => {
            <textarea required rows={5} value={reason} onChange={(e) => setReason(e.target.value)} className="w-full px-6 py-6 rounded-3xl bg-slate-50 border-2 border-transparent focus:bg-white focus:border-indigo-600 outline-none text-sm font-bold resize-none" placeholder="사유를 입력하세요." />
         </div>
 
-        <button type="submit" disabled={isSubmitting} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black text-lg shadow-2xl hover:bg-indigo-700 transition-all disabled:bg-slate-300">
-           {isSubmitting ? '전송 중...' : '제출하기'}
+        {type === 'EXTRA_LEAVE' && remainingExtraLeave < diffDays && (
+          <p className="text-center text-[11px] font-black text-red-500 bg-red-50 py-3 rounded-2xl border border-red-100">
+            잔여 보상휴가({remainingExtraLeave}일)가 부족합니다.
+          </p>
+        )}
+        <button
+          type="submit"
+          disabled={isSubmitting || (type === 'EXTRA_LEAVE' && remainingExtraLeave < diffDays)}
+          className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black text-lg shadow-2xl hover:bg-indigo-700 transition-all disabled:bg-slate-300 disabled:cursor-not-allowed"
+        >
+          {isSubmitting ? '전송 중...' : '제출하기'}
         </button>
       </form>
     </div>

@@ -36,6 +36,8 @@ export interface LeaveRequest {
   reason: string;
   status: Status;
   approverId?: string;
+  isAdminDirect?: boolean;
+  adminName?: string;
   createdAt: string;
 }
 

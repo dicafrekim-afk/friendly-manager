@@ -186,7 +186,9 @@ const Dashboard: React.FC = () => {
       reason: addForm.reason,
       status: 'APPROVED',
       createdAt: new Date().toISOString(),
-      approverId: currentUser?.id
+      approverId: currentUser?.id,
+      isAdminDirect: true,
+      adminName: currentUser?.name
     };
 
     await dataService.adminDirectCreateLeave(request);

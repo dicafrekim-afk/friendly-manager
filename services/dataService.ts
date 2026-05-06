@@ -376,10 +376,10 @@ export const dataService = {
 
   async deleteUser(id: string): Promise<void> {
     if (isSupabaseConfigured) {
-      // 연관 데이터 먼저 삭제 (Foreign Key 제약 해소)
-      await supabase.from('leave_requests').delete().eq('userId', id);
-      await supabase.from('extra_work_reports').delete().eq('userId', id);
-      await supabase.from('notifications').delete().eq('userId', id);
+      try { await supabase.from('leave_requests').delete().eq('userId', id); } catch (e) {}
+      try { await supabase.from('extra_work_reports').delete().eq('userId', id); } catch (e) {}
+      try { await supabase.from('reward_leave_grants').delete().eq('userId', id); } catch (e) {}
+      try { await supabase.from('notifications').delete().eq('userId', id); } catch (e) {}
 
       const { error } = await supabase.from('users').delete().eq('id', id);
       if (error) {
@@ -387,31 +387,54 @@ export const dataService = {
         throw new Error(`삭제 실패: ${error.message}`);
       }
     }
-    const localUsers = getLocal('friendly_users');
-    setLocal('friendly_users', localUsers.filter((u: any) => u.id !== id));
+
+    setLocal('friendly_users', getLocal('friendly_users').filter((u: any) => u.id !== id));
+    setLocal('friendly_requests', getLocal('friendly_requests').filter((r: any) => r.userId !== id));
+    setLocal('friendly_extra_work', getLocal('friendly_extra_work').filter((r: any) => r.userId !== id));
+    setLocal('friendly_reward_grants', getLocal('friendly_reward_grants').filter((g: any) => g.userId !== id));
+    setLocal('friendly_notifications', getLocal('friendly_notifications').filter((n: any) => n.userId !== id));
   },
 
   async getRewardLeaveGrants(userId: string): Promise<RewardLeaveGrant[]> {
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase
+          .from('reward_leave_grants')
+          .select('*')
+          .eq('userId', userId)
+          .order('grantedAt', { ascending: false });
+        if (!error && data) return data as RewardLeaveGrant[];
+        if (error) console.error('Supabase RewardLeaveGrant Fetch Error:', error);
+      } catch (e) { console.error('RewardLeaveGrant Exception:', e); }
+    }
     const all = getLocal('friendly_reward_grants') as RewardLeaveGrant[];
     return all.filter(g => g.userId === userId).sort((a, b) => b.grantedAt.localeCompare(a.grantedAt));
   },
 
   async createRewardLeaveGrant(grant: RewardLeaveGrant): Promise<void> {
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase.from('reward_leave_grants').insert([grant]);
+        if (error) console.error('Supabase RewardLeaveGrant Insert Error:', error);
+      } catch (e) { console.error('RewardLeaveGrant Insert Exception:', e); }
+    }
     const all = getLocal('friendly_reward_grants') as RewardLeaveGrant[];
     setLocal('friendly_reward_grants', [...all, grant]);
   },
 
   async resetAllLeaveData(): Promise<void> {
-    // 1. 모든 휴가 신청 삭제
     if (isSupabaseConfigured) {
-      try { await supabase.from('leave_requests').delete().neq('id', '___impossible___'); } catch (e) {}
+      try { await supabase.from('leave_requests').delete().neq('id', 'x'); } catch (e) { console.error('leave_requests 삭제 실패:', e); }
+      try { await supabase.from('extra_work_reports').delete().neq('id', 'x'); } catch (e) { console.error('extra_work_reports 삭제 실패:', e); }
+      try { await supabase.from('reward_leave_grants').delete().neq('id', 'x'); } catch (e) { console.error('reward_leave_grants 삭제 실패:', e); }
     }
     setLocal('friendly_requests', []);
+    setLocal('friendly_extra_work', []);
+    setLocal('friendly_reward_grants', []);
 
-    // 2. 모든 유저의 usedLeave 초기화
     const users = await this.getUsers();
     for (const user of users) {
-      await this.updateUser(user.id, { usedLeave: 0 });
+      await this.updateUser(user.id, { usedLeave: 0, extraLeaveAvailable: 0, extraLeaveUsed: 0 });
     }
   }
 };

@@ -156,7 +156,13 @@ const AdminRequests: React.FC = () => {
                       <h3 className="text-sm font-black text-slate-900">{req.userName || '알 수 없음'}</h3>
                       <p className="text-[10px] font-bold text-slate-400">{req.userTeam || '팀 미지정'}</p>
                     </div>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-black border ${LEAVE_TYPE_COLORS[req.type]}`}>{LEAVE_TYPE_LABELS[req.type]}</span>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-black border ${LEAVE_TYPE_COLORS[req.type]}`}>{LEAVE_TYPE_LABELS[req.type]}</span>
+                      {req.isAdminDirect
+                        ? <span className="px-2 py-0.5 rounded text-[9px] font-black border bg-amber-50 text-amber-600 border-amber-100">관리자 입력 · {req.adminName}</span>
+                        : <span className="px-2 py-0.5 rounded text-[9px] font-black border bg-slate-50 text-slate-400 border-slate-100">본인 신청</span>
+                      }
+                    </div>
                   </div>
                   <div className="bg-slate-50 p-4 rounded-2xl space-y-2">
                     <div className="flex justify-between text-[10px] font-bold">
@@ -183,12 +189,12 @@ const AdminRequests: React.FC = () => {
               <table className="w-full text-left">
                  <thead className="bg-slate-50 text-slate-400 text-[9px] uppercase font-black">
                    <tr>
-                      <th className="px-8 py-5">신청자</th><th className="px-8 py-5">유형</th><th className="px-8 py-5">사유</th><th className="px-8 py-5">일정</th><th className="px-8 py-5 text-right">관리</th>
+                      <th className="px-8 py-5">신청자</th><th className="px-8 py-5">유형</th><th className="px-8 py-5">사유</th><th className="px-8 py-5">일정</th><th className="px-8 py-5">입력 구분</th><th className="px-8 py-5 text-right">관리</th>
                    </tr>
                  </thead>
                  <tbody className="divide-y divide-slate-50">
                     {filteredRequests.length === 0 ? (
-                      <tr><td colSpan={5} className="px-8 py-20 text-center italic text-slate-300 text-sm">신청 내역이 없습니다.</td></tr>
+                      <tr><td colSpan={6} className="px-8 py-20 text-center italic text-slate-300 text-sm">신청 내역이 없습니다.</td></tr>
                     ) : (
                       filteredRequests.map(req => (
                         <tr key={req.id} className="hover:bg-slate-50 transition-colors">
@@ -196,6 +202,12 @@ const AdminRequests: React.FC = () => {
                            <td className="px-8 py-6"><span className={`px-2 py-1 rounded text-[9px] font-black border ${LEAVE_TYPE_COLORS[req.type]}`}>{LEAVE_TYPE_LABELS[req.type]}</span></td>
                            <td className="px-8 py-6 text-[11px] font-bold text-slate-500">{req.reason}</td>
                            <td className="px-8 py-6 text-[10px] font-black text-slate-400">{req.startDate} {req.endDate !== req.startDate ? `~ ${req.endDate}` : ''}</td>
+                           <td className="px-8 py-6">
+                              {req.isAdminDirect
+                                ? <span className="inline-flex flex-col gap-0.5"><span className="px-2 py-1 rounded text-[9px] font-black border bg-amber-50 text-amber-600 border-amber-100 whitespace-nowrap">관리자 입력</span><span className="text-[8px] font-bold text-slate-400 ml-0.5">{req.adminName}</span></span>
+                                : <span className="px-2 py-1 rounded text-[9px] font-black border bg-slate-50 text-slate-400 border-slate-100 whitespace-nowrap">본인 신청</span>
+                              }
+                           </td>
                            <td className="px-8 py-6 text-right">
                               {canAction(req.status) ? (
                                  <div className="flex justify-end gap-2">
