@@ -563,6 +563,11 @@ const Dashboard: React.FC = () => {
                         <button type="button" onClick={() => setAddForm({...addForm, extraLeaveHalfDayType: 'AFTERNOON'})} className={`py-3 rounded-2xl border-2 text-[11px] font-black transition-all ${addForm.extraLeaveHalfDayType === 'AFTERNOON' ? 'border-violet-500 bg-violet-50 text-violet-600' : 'border-slate-100 text-slate-400'}`}>오후 반차</button>
                       </div>
                     )}
+                    {insufficient && (
+                      <p className="text-center text-[11px] font-black text-red-500 bg-red-50 py-3 rounded-2xl border border-red-100">
+                        잔여 보상휴가({remaining}일)가 부족합니다. 입력할 수 없습니다.
+                      </p>
+                    )}
                   </div>
                 );
               })()}
