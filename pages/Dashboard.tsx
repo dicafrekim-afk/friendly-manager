@@ -58,8 +58,10 @@ const Dashboard: React.FC = () => {
     startDate: string;
     endDate: string;
     halfDayType: 'MORNING' | 'AFTERNOON';
+    extraLeaveHalfDay: boolean;
+    extraLeaveHalfDayType: 'MORNING' | 'AFTERNOON';
     reason: string;
-  }>({ userId: '', leaveType: 'VACATION', startDate: '', endDate: '', halfDayType: 'MORNING', reason: '' });
+  }>({ userId: '', leaveType: 'VACATION', startDate: '', endDate: '', halfDayType: 'MORNING', extraLeaveHalfDay: false, extraLeaveHalfDayType: 'MORNING', reason: '' });
 
   const fetchData = async () => {
     const sessionStr = localStorage.getItem('friendly_current_session');
@@ -173,14 +175,28 @@ const Dashboard: React.FC = () => {
     const selectedUser = allUsers.find(u => u.id === addForm.userId);
     if (!selectedUser) return;
 
-    const endDate = addForm.leaveType === 'HALF_DAY' ? addForm.startDate : addForm.endDate;
+    if (addForm.leaveType === 'EXTRA_LEAVE') {
+      const remaining = (selectedUser.extraLeaveAvailable || 0) - (selectedUser.extraLeaveUsed || 0);
+      const required = addForm.extraLeaveHalfDay ? 0.5 : 1.0;
+      if (remaining < required) {
+        alert(`보상휴가 잔여일이 부족합니다. (잔여: ${remaining}일)`);
+        return;
+      }
+    }
+
+    const isSingleDay = addForm.leaveType === 'HALF_DAY' || addForm.leaveType === 'EXTRA_LEAVE';
+    const endDate = isSingleDay ? addForm.startDate : addForm.endDate;
+
     const request: LeaveRequest = {
       id: `req-admin-${Date.now()}`,
       userId: selectedUser.id,
       userName: selectedUser.name,
       userTeam: selectedUser.team,
       type: addForm.leaveType,
-      halfDayType: addForm.leaveType === 'HALF_DAY' ? addForm.halfDayType : undefined,
+      halfDayType: addForm.leaveType === 'HALF_DAY'
+        ? addForm.halfDayType
+        : (addForm.leaveType === 'EXTRA_LEAVE' && addForm.extraLeaveHalfDay ? addForm.extraLeaveHalfDayType : undefined),
+      isHalfDay: addForm.leaveType === 'EXTRA_LEAVE' ? addForm.extraLeaveHalfDay : undefined,
       startDate: addForm.startDate,
       endDate,
       reason: addForm.reason,
@@ -512,7 +528,7 @@ const Dashboard: React.FC = () => {
                 </div>
               </div>
 
-              {/* 반차 유형 (HALF_DAY일 때만) */}
+              {/* 반차 구분 (HALF_DAY) */}
               {addForm.leaveType === 'HALF_DAY' && (
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">반차 구분</label>
@@ -523,10 +539,43 @@ const Dashboard: React.FC = () => {
                 </div>
               )}
 
+              {/* 보상휴가 옵션 */}
+              {addForm.leaveType === 'EXTRA_LEAVE' && (() => {
+                const selected = allUsers.find(u => u.id === addForm.userId);
+                const remaining = selected ? (selected.extraLeaveAvailable || 0) - (selected.extraLeaveUsed || 0) : null;
+                const required = addForm.extraLeaveHalfDay ? 0.5 : 1.0;
+                const insufficient = remaining !== null && remaining < required;
+                return (
+                  <div className="space-y-3">
+                    {remaining !== null && (
+                      <div className={`p-3 rounded-xl text-[10px] font-black border flex justify-between items-center ${insufficient ? 'bg-red-50 border-red-100 text-red-500' : 'bg-violet-50 border-violet-100 text-violet-600'}`}>
+                        <span>보상휴가 잔여: {remaining}일</span>
+                        <span className="text-[9px] opacity-70">부여 {selected?.extraLeaveAvailable || 0}일 / 사용 {selected?.extraLeaveUsed || 0}일</span>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-3">
+                      <button type="button" onClick={() => setAddForm({...addForm, extraLeaveHalfDay: false})} className={`py-3 rounded-2xl border-2 text-[11px] font-black transition-all ${!addForm.extraLeaveHalfDay ? 'border-violet-500 bg-violet-50 text-violet-600' : 'border-slate-100 text-slate-400'}`}>1일 사용</button>
+                      <button type="button" onClick={() => setAddForm({...addForm, extraLeaveHalfDay: true})} className={`py-3 rounded-2xl border-2 text-[11px] font-black transition-all ${addForm.extraLeaveHalfDay ? 'border-violet-500 bg-violet-50 text-violet-600' : 'border-slate-100 text-slate-400'}`}>반차 (0.5일)</button>
+                    </div>
+                    {addForm.extraLeaveHalfDay && (
+                      <div className="grid grid-cols-2 gap-3">
+                        <button type="button" onClick={() => setAddForm({...addForm, extraLeaveHalfDayType: 'MORNING'})} className={`py-3 rounded-2xl border-2 text-[11px] font-black transition-all ${addForm.extraLeaveHalfDayType === 'MORNING' ? 'border-violet-500 bg-violet-50 text-violet-600' : 'border-slate-100 text-slate-400'}`}>오전 반차</button>
+                        <button type="button" onClick={() => setAddForm({...addForm, extraLeaveHalfDayType: 'AFTERNOON'})} className={`py-3 rounded-2xl border-2 text-[11px] font-black transition-all ${addForm.extraLeaveHalfDayType === 'AFTERNOON' ? 'border-violet-500 bg-violet-50 text-violet-600' : 'border-slate-100 text-slate-400'}`}>오후 반차</button>
+                      </div>
+                    )}
+                    {insufficient && (
+                      <p className="text-center text-[11px] font-black text-red-500 bg-red-50 py-3 rounded-2xl border border-red-100">
+                        잔여 보상휴가({remaining}일)가 부족합니다. 입력할 수 없습니다.
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+
               {/* 기간 */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">시작일</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">일자</label>
                   <input
                     type="date"
                     value={addForm.startDate}
@@ -534,7 +583,7 @@ const Dashboard: React.FC = () => {
                     className="w-full px-4 py-3 rounded-2xl bg-slate-50 border-2 border-slate-50 focus:border-indigo-600 focus:bg-white outline-none text-sm font-black transition-all"
                   />
                 </div>
-                {addForm.leaveType !== 'HALF_DAY' && (
+                {addForm.leaveType !== 'HALF_DAY' && addForm.leaveType !== 'EXTRA_LEAVE' && (
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">종료일</label>
                     <input
@@ -565,8 +614,31 @@ const Dashboard: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleAdminAddLeave}
-                  disabled={!addForm.userId || !addForm.reason.trim()}
-                  className={`flex-1 py-4 text-xs font-black rounded-2xl shadow-lg transition-all ${!addForm.userId || !addForm.reason.trim() ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
+                  disabled={(() => {
+                    if (!addForm.userId || !addForm.reason.trim()) return true;
+                    if (addForm.leaveType === 'EXTRA_LEAVE') {
+                      const selected = allUsers.find(u => u.id === addForm.userId);
+                      if (selected) {
+                        const remaining = (selected.extraLeaveAvailable || 0) - (selected.extraLeaveUsed || 0);
+                        const required = addForm.extraLeaveHalfDay ? 0.5 : 1.0;
+                        if (remaining < required) return true;
+                      }
+                    }
+                    return false;
+                  })()}
+                  className={`flex-1 py-4 text-xs font-black rounded-2xl shadow-lg transition-all ${
+                    (() => {
+                      if (!addForm.userId || !addForm.reason.trim()) return true;
+                      if (addForm.leaveType === 'EXTRA_LEAVE') {
+                        const selected = allUsers.find(u => u.id === addForm.userId);
+                        if (selected) {
+                          const remaining = (selected.extraLeaveAvailable || 0) - (selected.extraLeaveUsed || 0);
+                          if (remaining < (addForm.extraLeaveHalfDay ? 0.5 : 1.0)) return true;
+                        }
+                      }
+                      return false;
+                    })() ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  }`}
                 >
                   즉시 등록
                 </button>

@@ -301,7 +301,8 @@ const AdminUserManagement: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <label className="text-[10px] font-black text-violet-500 uppercase tracking-widest">보상휴가 부여</label>
                     <div className="flex gap-3 text-[10px] font-black text-violet-400">
-                      <span>잔여 <span className="text-violet-600">{editingUser.extraLeaveAvailable || 0}d</span></span>
+                      <span>잔여 <span className={`font-black ${((editingUser.extraLeaveAvailable || 0) - (editingUser.extraLeaveUsed || 0)) < 0 ? 'text-red-500' : 'text-violet-600'}`}>{(editingUser.extraLeaveAvailable || 0) - (editingUser.extraLeaveUsed || 0)}d</span></span>
+                      <span>부여 <span className="text-violet-500">{editingUser.extraLeaveAvailable || 0}d</span></span>
                       <span>사용 <span className="text-violet-400">{editingUser.extraLeaveUsed || 0}d</span></span>
                     </div>
                   </div>
