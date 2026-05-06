@@ -40,6 +40,11 @@ const LeaveApplication: React.FC = () => {
     if ((type === 'HALF_DAY' || type === 'EXTRA_LEAVE') && startDate) setEndDate(startDate);
   }, [type, startDate]);
 
+  const remainingLeave = useMemo(() => {
+    if (!currentUser) return 0;
+    return Math.max(0, (currentUser.totalLeave || 0) - (currentUser.usedLeave || 0));
+  }, [currentUser]);
+
   const remainingExtraLeave = useMemo(() => {
     if (!currentUser) return 0;
     return Math.max(0, (currentUser.extraLeaveAvailable || 0) - (currentUser.extraLeaveUsed || 0));
@@ -59,11 +64,24 @@ const LeaveApplication: React.FC = () => {
     e.preventDefault();
     if (!currentUser) return;
     
+    const allRequests = await dataService.getRequests();
+    const pendingStatuses = ['PENDING', 'PENDING_PL', 'PENDING_FINAL'];
+
+    if (type === 'VACATION' || type === 'HALF_DAY') {
+      const available = (currentUser.totalLeave || 0) - (currentUser.usedLeave || 0);
+      const pendingDays = allRequests
+        .filter(r => r.userId === currentUser.id && (r.type === 'VACATION' || r.type === 'HALF_DAY') && pendingStatuses.includes(r.status))
+        .reduce((sum, r) => sum + (r.type === 'HALF_DAY' ? 0.5 : Math.ceil(Math.abs(new Date(r.endDate).getTime() - new Date(r.startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1), 0);
+      if (available - pendingDays < diffDays) {
+        alert(`잔여 연차가 부족합니다. (잔여 ${available - pendingDays}일, 신청 ${diffDays}일)`);
+        return;
+      }
+    }
+
     if (type === 'EXTRA_LEAVE') {
        const available = (currentUser.extraLeaveAvailable || 0) - (currentUser.extraLeaveUsed || 0);
-       const allRequests = await dataService.getRequests();
        const pendingDays = allRequests
-         .filter(r => r.userId === currentUser.id && r.type === 'EXTRA_LEAVE' && ['PENDING', 'PENDING_PL', 'PENDING_FINAL'].includes(r.status))
+         .filter(r => r.userId === currentUser.id && r.type === 'EXTRA_LEAVE' && pendingStatuses.includes(r.status))
          .reduce((sum, r) => sum + (r.isHalfDay ? 0.5 : 1.0), 0);
        if (available - pendingDays < diffDays) {
           alert('보유하신 보상 휴가가 부족합니다.');
@@ -204,6 +222,11 @@ const LeaveApplication: React.FC = () => {
            <textarea required rows={5} value={reason} onChange={(e) => setReason(e.target.value)} className="w-full px-6 py-6 rounded-3xl bg-slate-50 border-2 border-transparent focus:bg-white focus:border-indigo-600 outline-none text-sm font-bold resize-none" placeholder="사유를 입력하세요." />
         </div>
 
+        {(type === 'VACATION' || type === 'HALF_DAY') && diffDays > 0 && remainingLeave < diffDays && (
+          <p className="text-center text-[11px] font-black text-red-500 bg-red-50 py-3 rounded-2xl border border-red-100">
+            잔여 연차({remainingLeave}일)가 부족합니다. (신청 {diffDays}일)
+          </p>
+        )}
         {type === 'EXTRA_LEAVE' && remainingExtraLeave < diffDays && (
           <p className="text-center text-[11px] font-black text-red-500 bg-red-50 py-3 rounded-2xl border border-red-100">
             잔여 보상휴가({remainingExtraLeave}일)가 부족합니다.
@@ -211,7 +234,11 @@ const LeaveApplication: React.FC = () => {
         )}
         <button
           type="submit"
-          disabled={isSubmitting || (type === 'EXTRA_LEAVE' && remainingExtraLeave < diffDays)}
+          disabled={
+            isSubmitting ||
+            ((type === 'VACATION' || type === 'HALF_DAY') && diffDays > 0 && remainingLeave < diffDays) ||
+            (type === 'EXTRA_LEAVE' && remainingExtraLeave < diffDays)
+          }
           className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black text-lg shadow-2xl hover:bg-indigo-700 transition-all disabled:bg-slate-300 disabled:cursor-not-allowed"
         >
           {isSubmitting ? '전송 중...' : '제출하기'}
