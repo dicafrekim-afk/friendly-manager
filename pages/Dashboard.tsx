@@ -157,6 +157,12 @@ const Dashboard: React.FC = () => {
   };
 
   const isSuperAdm = currentUser ? isSuperAdmin(currentUser) : false;
+  const isPL = currentUser?.role === 'ADMIN' && !isSuperAdm;
+  const canViewReason = (req: LeaveRequest): boolean => {
+    if (isSuperAdm) return true;
+    if (isPL && currentUser?.team === req.userTeam) return true;
+    return false;
+  };
 
   const selectedDateStr = selectedDay
     ? `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`
@@ -388,7 +394,7 @@ const Dashboard: React.FC = () => {
                             <p className="text-xs font-black text-slate-900 group-hover:text-indigo-600 transition-colors">{req.userName}</p>
                             <span className={`text-[8px] font-black px-2 py-0.5 rounded-full border ${LEAVE_TYPE_COLORS[req.type]}`}>{getLeaveLabel(req)}</span>
                          </div>
-                         <p className="text-[10px] font-bold text-slate-400 line-clamp-1">{req.reason}</p>
+                         {canViewReason(req) && <p className="text-[10px] font-bold text-slate-400 line-clamp-1">{req.reason}</p>}
                       </div>
                     ))}
                     {selectedDateEvents.meetings.map(meet => (
@@ -460,14 +466,19 @@ const Dashboard: React.FC = () => {
                        </p>
                     </div>
                     
-                    <div className="bg-slate-50 p-5 rounded-[24px]">
-                       <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">
-                          {selectedEvent.type === 'REQ' ? '신청 사유' : '회의 상세'}
-                       </p>
-                       <p className="text-xs font-bold text-slate-600 leading-relaxed">
-                          {selectedEvent.type === 'REQ' ? selectedEvent.data.reason : selectedEvent.data.description}
-                       </p>
-                    </div>
+                    {selectedEvent.type === 'REQ' ? (
+                      canViewReason(selectedEvent.data) && (
+                        <div className="bg-slate-50 p-5 rounded-[24px]">
+                          <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">신청 사유</p>
+                          <p className="text-xs font-bold text-slate-600 leading-relaxed">{selectedEvent.data.reason}</p>
+                        </div>
+                      )
+                    ) : (
+                      <div className="bg-slate-50 p-5 rounded-[24px]">
+                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">회의 상세</p>
+                        <p className="text-xs font-bold text-slate-600 leading-relaxed">{selectedEvent.data.description}</p>
+                      </div>
+                    )}
                  </div>
 
                  <div className="flex flex-col gap-3 pt-4">
