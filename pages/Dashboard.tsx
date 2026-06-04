@@ -161,6 +161,7 @@ const Dashboard: React.FC = () => {
   const canViewReason = (req: LeaveRequest): boolean => {
     if (isSuperAdm) return true;
     if (isPL && currentUser?.team === req.userTeam) return true;
+    if (currentUser?.id === req.userId) return true;
     return false;
   };
 
