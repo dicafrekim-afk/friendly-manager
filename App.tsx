@@ -4,6 +4,7 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
+import Attendance from './pages/Attendance';
 import LeaveApplication from './pages/LeaveApplication';
 import ExtraWorkReportPage from './pages/ExtraWorkReport'; // 신규 추가
 import MeetingSchedule from './pages/MeetingSchedule';
@@ -78,6 +79,7 @@ const App: React.FC = () => {
         <Route path="/login" element={<Login onLogin={login} />} />
         <Route path="/register" element={<Register />} />
         <Route path="/" element={<AuthenticatedLayout {...layoutProps}><Dashboard /></AuthenticatedLayout>} />
+        <Route path="/attendance" element={<AuthenticatedLayout {...layoutProps}><Attendance /></AuthenticatedLayout>} />
         <Route path="/apply" element={<AuthenticatedLayout {...layoutProps}><LeaveApplication /></AuthenticatedLayout>} />
         <Route path="/extra-work" element={<AuthenticatedLayout {...layoutProps}><ExtraWorkReportPage /></AuthenticatedLayout>} />
         <Route path="/meetings" element={<AuthenticatedLayout {...layoutProps}><MeetingSchedule /></AuthenticatedLayout>} />

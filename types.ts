@@ -78,6 +78,33 @@ export interface RewardLeaveGrant {
   grantedAt: string;
 }
 
+// 출퇴근 기록 상태
+// CONFIRMED: GPS 반경 내에서 정상 등록
+// PENDING_MANUAL: GPS 반경 밖/실패로 수동 등록 요청, 관리자 승인 대기
+// REJECTED: 관리자가 수동 등록 요청을 반려
+export type AttendanceStatus = 'CONFIRMED' | 'PENDING_MANUAL' | 'REJECTED';
+
+export interface AttendanceRecord {
+  id: string;
+  userId: string;
+  userName: string;
+  userTeam: Team;
+  date: string; // YYYY-MM-DD (근무일 기준)
+  checkInTime?: string; // ISO datetime
+  checkOutTime?: string; // ISO datetime
+  checkInStatus?: AttendanceStatus;
+  checkOutStatus?: AttendanceStatus;
+  checkInDistance?: number; // 사무실 기준 거리(m)
+  checkOutDistance?: number;
+  checkInAccuracy?: number; // GPS accuracy(m)
+  checkOutAccuracy?: number;
+  checkInReason?: string; // 수동 등록 사유
+  checkOutReason?: string;
+  approverId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Notification {
   id: string;
   userId: string;

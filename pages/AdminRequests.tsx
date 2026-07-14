@@ -1,16 +1,17 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { LeaveRequest, User, ExtraWorkReport } from '../types';
+import { LeaveRequest, User, ExtraWorkReport, AttendanceRecord } from '../types';
 import { LEAVE_TYPE_LABELS, LEAVE_TYPE_COLORS } from '../constants';
 import { dataService, isSuperAdmin } from '../services/dataService';
 
 const AdminRequests: React.FC = () => {
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [extraReports, setExtraReports] = useState<ExtraWorkReport[]>([]);
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [tab, setTab] = useState<'LEAVE' | 'WORK'>('LEAVE');
+  const [tab, setTab] = useState<'LEAVE' | 'WORK' | 'ATTENDANCE'>('LEAVE');
   const [searchParams] = useSearchParams();
 
   const searchQuery = searchParams.get('q')?.trim().toLowerCase() || '';
@@ -31,6 +32,18 @@ const AdminRequests: React.FC = () => {
     );
   }, [extraReports, searchQuery]);
 
+  const pendingAttendance = useMemo(() => {
+    return attendanceRecords.filter(r => r.checkInStatus === 'PENDING_MANUAL' || r.checkOutStatus === 'PENDING_MANUAL');
+  }, [attendanceRecords]);
+
+  const filteredAttendance = useMemo(() => {
+    if (!searchQuery) return pendingAttendance;
+    return pendingAttendance.filter(r =>
+      r.userName?.toLowerCase().includes(searchQuery) ||
+      r.userTeam?.toLowerCase().includes(searchQuery)
+    );
+  }, [pendingAttendance, searchQuery]);
+
   const fetchData = async () => {
     setLoading(true);
     const session = localStorage.getItem('friendly_current_session');
@@ -40,9 +53,10 @@ const AdminRequests: React.FC = () => {
         setCurrentUser(parsedUser);
         
         // 데이터 강제 로드
-        const [allRequests, allExtra] = await Promise.all([
+        const [allRequests, allExtra, allAttendance] = await Promise.all([
           dataService.getRequests(),
-          dataService.getExtraWorkReports()
+          dataService.getExtraWorkReports(),
+          dataService.getAttendanceRecords()
         ]);
 
         const isSuperAdm = isSuperAdmin(parsedUser);
@@ -50,10 +64,12 @@ const AdminRequests: React.FC = () => {
         if (isSuperAdm) {
           setRequests(allRequests || []);
           setExtraReports(allExtra || []);
+          setAttendanceRecords(allAttendance || []);
         } else if (parsedUser.role === 'ADMIN') {
           // PL: 본인 팀 신청만 표시
           setRequests((allRequests || []).filter(r => r.userTeam === parsedUser.team));
           setExtraReports((allExtra || []).filter(r => r.userTeam === parsedUser.team));
+          setAttendanceRecords((allAttendance || []).filter(r => r.userTeam === parsedUser.team));
         }
       } catch (err) {
         console.error("Data load error", err);
@@ -66,7 +82,7 @@ const AdminRequests: React.FC = () => {
     fetchData(); 
   }, []);
 
-  const handleTabChange = (newTab: 'LEAVE' | 'WORK') => {
+  const handleTabChange = (newTab: 'LEAVE' | 'WORK' | 'ATTENDANCE') => {
     setTab(newTab);
     fetchData();
   };
@@ -86,6 +102,13 @@ const AdminRequests: React.FC = () => {
       ? (isSuperAdmin(currentUser) ? 'APPROVED' : 'PENDING_FINAL')
       : 'REJECTED';
     await dataService.updateExtraWorkStatus(id, nextStatus as any);
+    fetchData();
+  };
+
+  const handleAttendanceAction = async (recordId: string, field: 'checkIn' | 'checkOut', action: 'APPROVE' | 'REJECT') => {
+    if (!currentUser) return;
+    const nextStatus = action === 'APPROVE' ? 'CONFIRMED' : 'REJECTED';
+    await dataService.updateAttendanceApproval(recordId, field, nextStatus as any, currentUser.id);
     fetchData();
   };
 
@@ -134,6 +157,9 @@ const AdminRequests: React.FC = () => {
         <div className="flex bg-slate-100 p-1.5 rounded-[22px] shadow-inner w-full lg:w-auto overflow-x-auto scrollbar-hide">
            <button onClick={() => handleTabChange('LEAVE')} className={`flex-1 lg:flex-none px-6 py-3 rounded-2xl text-[11px] font-black transition-all whitespace-nowrap ${tab === 'LEAVE' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
              휴가/출장 ({searchQuery ? `${filteredRequests.length}/` : ''}{requests.length})
+           </button>
+           <button onClick={() => handleTabChange('ATTENDANCE')} className={`flex-1 lg:flex-none px-6 py-3 rounded-2xl text-[11px] font-black transition-all whitespace-nowrap ${tab === 'ATTENDANCE' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
+             출퇴근 수동승인 ({searchQuery ? `${filteredAttendance.length}/` : ''}{pendingAttendance.length})
            </button>
         </div>
       </div>
@@ -292,6 +318,66 @@ const AdminRequests: React.FC = () => {
                  </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      )}
+
+      {tab === 'ATTENDANCE' && (
+        <div className="space-y-4">
+          {searchQuery && (
+            <p className="text-xs font-bold text-slate-400 px-1">
+              "{searchParams.get('q')}" 검색 결과 {filteredAttendance.length}건
+            </p>
+          )}
+          <div className="grid grid-cols-1 gap-4">
+            {filteredAttendance.length === 0 ? (
+              <div className="bg-white p-12 rounded-[32px] text-center border border-slate-100 italic text-slate-300 text-sm">수동 승인 대기 중인 출퇴근 기록이 없습니다.</div>
+            ) : (
+              filteredAttendance.map(rec => (
+                <div key={rec.id} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm space-y-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="text-sm font-black text-slate-900">{rec.userName}</h3>
+                      <p className="text-[10px] font-bold text-slate-400">{rec.userTeam} · {rec.date}</p>
+                    </div>
+                  </div>
+
+                  {rec.checkInStatus === 'PENDING_MANUAL' && (
+                    <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl space-y-2">
+                      <div className="flex justify-between items-center text-[10px] font-black text-amber-700">
+                        <span>출근 수동 등록 요청</span>
+                        <span>{rec.checkInTime ? new Date(rec.checkInTime).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                      </div>
+                      {rec.checkInDistance !== undefined && (
+                        <p className="text-[10px] font-bold text-amber-600">측정 거리: 약 {Math.round(rec.checkInDistance)}m</p>
+                      )}
+                      {rec.checkInReason && <p className="text-[11px] font-medium text-slate-600">사유: {rec.checkInReason}</p>}
+                      <div className="flex gap-2 pt-2">
+                        <button onClick={() => handleAttendanceAction(rec.id, 'checkIn', 'APPROVE')} className="flex-1 py-2 bg-indigo-600 text-white text-[10px] font-black rounded-xl shadow-lg">승인</button>
+                        <button onClick={() => handleAttendanceAction(rec.id, 'checkIn', 'REJECT')} className="flex-1 py-2 bg-slate-100 text-slate-400 text-[10px] font-black rounded-xl">반려</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {rec.checkOutStatus === 'PENDING_MANUAL' && (
+                    <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl space-y-2">
+                      <div className="flex justify-between items-center text-[10px] font-black text-amber-700">
+                        <span>퇴근 수동 등록 요청</span>
+                        <span>{rec.checkOutTime ? new Date(rec.checkOutTime).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                      </div>
+                      {rec.checkOutDistance !== undefined && (
+                        <p className="text-[10px] font-bold text-amber-600">측정 거리: 약 {Math.round(rec.checkOutDistance)}m</p>
+                      )}
+                      {rec.checkOutReason && <p className="text-[11px] font-medium text-slate-600">사유: {rec.checkOutReason}</p>}
+                      <div className="flex gap-2 pt-2">
+                        <button onClick={() => handleAttendanceAction(rec.id, 'checkOut', 'APPROVE')} className="flex-1 py-2 bg-indigo-600 text-white text-[10px] font-black rounded-xl shadow-lg">승인</button>
+                        <button onClick={() => handleAttendanceAction(rec.id, 'checkOut', 'REJECT')} className="flex-1 py-2 bg-slate-100 text-slate-400 text-[10px] font-black rounded-xl">반려</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}

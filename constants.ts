@@ -1,5 +1,17 @@
 
 import { LeaveType } from './types';
+import { GeoPoint } from './lib/geo';
+
+// 인사혁신처(정부세종2청사 17동) 근사 좌표 — OpenStreetMap 기준
+// 실제 출입구 위치와 5~15m 정도 차이가 날 수 있으므로,
+// 현장에서 카카오맵/구글맵으로 정확한 좌표를 확인해 보정하는 것을 권장합니다.
+export const OFFICE_LOCATION: GeoPoint = {
+  lat: 36.4839106,
+  lng: 127.2611459,
+};
+
+// 출퇴근 버튼 활성화 반경(m)
+export const ATTENDANCE_RADIUS_METERS = 50;
 
 export const LEAVE_TYPE_LABELS: Record<LeaveType, string> = {
   VACATION: '연차',

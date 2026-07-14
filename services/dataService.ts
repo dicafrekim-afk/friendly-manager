@@ -1,5 +1,5 @@
 
-import { User, LeaveRequest, Status, Notification, Meeting, Team, LeaveType, ExtraWorkReport, RewardLeaveGrant } from '../types';
+import { User, LeaveRequest, Status, Notification, Meeting, Team, LeaveType, ExtraWorkReport, RewardLeaveGrant, AttendanceRecord, AttendanceStatus } from '../types';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { notificationService } from './notificationService';
 
@@ -436,5 +436,115 @@ export const dataService = {
     for (const user of users) {
       await this.updateUser(user.id, { usedLeave: 0, extraLeaveAvailable: 0, extraLeaveUsed: 0 });
     }
+  },
+
+  async getAttendanceRecords(): Promise<AttendanceRecord[]> {
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase.from('attendance_records').select('*').order('date', { ascending: false });
+        if (!error && data) return data as AttendanceRecord[];
+        if (error) console.error('Supabase Attendance Fetch Error:', error);
+      } catch (e) { console.error('Attendance Fetch Exception:', e); }
+    }
+    return getLocal('friendly_attendance');
+  },
+
+  async getTodayAttendance(userId: string, date: string): Promise<AttendanceRecord | null> {
+    const records = await this.getAttendanceRecords();
+    return records.find(r => r.userId === userId && r.date === date) || null;
+  },
+
+  async upsertAttendance(record: AttendanceRecord): Promise<void> {
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase.from('attendance_records').upsert([record]);
+        if (error) console.error('Supabase Attendance Upsert Error:', error);
+      } catch (e) { console.error('Attendance Upsert Exception:', e); }
+    }
+    const records = await this.getAttendanceRecords();
+    setLocal('friendly_attendance', [...records.filter(r => r.id !== record.id), record]);
+  },
+
+  async checkIn(user: User, date: string, opts: { status: AttendanceStatus; distance?: number; accuracy?: number; reason?: string }): Promise<AttendanceRecord> {
+    const existing = await this.getTodayAttendance(user.id, date);
+    const now = new Date().toISOString();
+    const record: AttendanceRecord = {
+      id: existing?.id || `att-${user.id}-${date}`,
+      userId: user.id,
+      userName: user.name,
+      userTeam: user.team,
+      date,
+      ...existing,
+      checkInTime: now,
+      checkInStatus: opts.status,
+      checkInDistance: opts.distance,
+      checkInAccuracy: opts.accuracy,
+      checkInReason: opts.reason,
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+    };
+    await this.upsertAttendance(record);
+
+    if (opts.status === 'PENDING_MANUAL') {
+      await this.createNotification({
+        id: `notif-att-in-${Date.now()}`,
+        userId: 'ADMIN',
+        title: '출근 수동 등록 요청',
+        message: `${user.name}님이 반경 밖에서 출근 수동 등록을 요청했습니다.`,
+        type: 'WARNING',
+        createdAt: now,
+        isRead: false,
+        link: '/admin/requests',
+      });
+    }
+    return record;
+  },
+
+  async checkOut(user: User, date: string, opts: { status: AttendanceStatus; distance?: number; accuracy?: number; reason?: string }): Promise<AttendanceRecord> {
+    const existing = await this.getTodayAttendance(user.id, date);
+    const now = new Date().toISOString();
+    const record: AttendanceRecord = {
+      id: existing?.id || `att-${user.id}-${date}`,
+      userId: user.id,
+      userName: user.name,
+      userTeam: user.team,
+      date,
+      ...existing,
+      checkOutTime: now,
+      checkOutStatus: opts.status,
+      checkOutDistance: opts.distance,
+      checkOutAccuracy: opts.accuracy,
+      checkOutReason: opts.reason,
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+    };
+    await this.upsertAttendance(record);
+
+    if (opts.status === 'PENDING_MANUAL') {
+      await this.createNotification({
+        id: `notif-att-out-${Date.now()}`,
+        userId: 'ADMIN',
+        title: '퇴근 수동 등록 요청',
+        message: `${user.name}님이 반경 밖에서 퇴근 수동 등록을 요청했습니다.`,
+        type: 'WARNING',
+        createdAt: now,
+        isRead: false,
+        link: '/admin/requests',
+      });
+    }
+    return record;
+  },
+
+  async updateAttendanceApproval(recordId: string, field: 'checkIn' | 'checkOut', status: AttendanceStatus, approverId: string): Promise<void> {
+    const records = await this.getAttendanceRecords();
+    const target = records.find(r => r.id === recordId);
+    if (!target) return;
+    const updated: AttendanceRecord = {
+      ...target,
+      approverId,
+      updatedAt: new Date().toISOString(),
+      ...(field === 'checkIn' ? { checkInStatus: status } : { checkOutStatus: status }),
+    };
+    await this.upsertAttendance(updated);
   }
 };
