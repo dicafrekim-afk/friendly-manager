@@ -1,7 +1,8 @@
 
-import { User, LeaveRequest, Status, Notification, Meeting, Team, LeaveType, ExtraWorkReport, RewardLeaveGrant, AttendanceRecord, AttendanceStatus } from '../types';
+import { User, LeaveRequest, Status, Notification, Meeting, Team, LeaveType, ExtraWorkReport, RewardLeaveGrant, AttendanceRecord, AttendanceStatus, AttendanceSettings } from '../types';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { notificationService } from './notificationService';
+import { DEFAULT_OFFICE_LOCATION, DEFAULT_OFFICE_ADDRESS, DEFAULT_ATTENDANCE_RADIUS_METERS } from '../constants';
 
 export const SUPER_ADMIN_EMAILS = [
   'sllee0531@mail.go.kr',
@@ -438,6 +439,40 @@ export const dataService = {
     }
   },
 
+  async getAttendanceSettings(): Promise<AttendanceSettings> {
+    const fallback: AttendanceSettings = {
+      id: 'default',
+      officeLat: DEFAULT_OFFICE_LOCATION.lat,
+      officeLng: DEFAULT_OFFICE_LOCATION.lng,
+      officeAddress: DEFAULT_OFFICE_ADDRESS,
+      radiusMeters: DEFAULT_ATTENDANCE_RADIUS_METERS,
+      updatedAt: new Date().toISOString(),
+    };
+    if (isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase.from('attendance_settings').select('*').eq('id', 'default').maybeSingle();
+        if (!error && data) return data as AttendanceSettings;
+        if (error) console.error('Supabase Attendance Settings Fetch Error:', error);
+      } catch (e) { console.error('Attendance Settings Fetch Exception:', e); }
+    }
+    const local = localStorage.getItem('friendly_attendance_settings');
+    if (local) {
+      try { return JSON.parse(local); } catch (e) { /* fall through */ }
+    }
+    return fallback;
+  },
+
+  async updateAttendanceSettings(settings: Omit<AttendanceSettings, 'id'>): Promise<void> {
+    const record: AttendanceSettings = { ...settings, id: 'default' };
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase.from('attendance_settings').upsert([record]);
+        if (error) console.error('Supabase Attendance Settings Upsert Error:', error);
+      } catch (e) { console.error('Attendance Settings Upsert Exception:', e); }
+    }
+    localStorage.setItem('friendly_attendance_settings', JSON.stringify(record));
+  },
+
   async getAttendanceRecords(): Promise<AttendanceRecord[]> {
     if (isSupabaseConfigured) {
       try {
@@ -465,7 +500,7 @@ export const dataService = {
     setLocal('friendly_attendance', [...records.filter(r => r.id !== record.id), record]);
   },
 
-  async checkIn(user: User, date: string, opts: { status: AttendanceStatus; distance?: number; accuracy?: number; reason?: string }): Promise<AttendanceRecord> {
+  async checkIn(user: User, date: string, opts: { status: AttendanceStatus; distance?: number; accuracy?: number; lat?: number; lng?: number; reason?: string }): Promise<AttendanceRecord> {
     const existing = await this.getTodayAttendance(user.id, date);
     const now = new Date().toISOString();
     const record: AttendanceRecord = {
@@ -479,6 +514,8 @@ export const dataService = {
       checkInStatus: opts.status,
       checkInDistance: opts.distance,
       checkInAccuracy: opts.accuracy,
+      checkInLat: opts.lat,
+      checkInLng: opts.lng,
       checkInReason: opts.reason,
       createdAt: existing?.createdAt || now,
       updatedAt: now,
@@ -500,7 +537,7 @@ export const dataService = {
     return record;
   },
 
-  async checkOut(user: User, date: string, opts: { status: AttendanceStatus; distance?: number; accuracy?: number; reason?: string }): Promise<AttendanceRecord> {
+  async checkOut(user: User, date: string, opts: { status: AttendanceStatus; distance?: number; accuracy?: number; lat?: number; lng?: number; reason?: string }): Promise<AttendanceRecord> {
     const existing = await this.getTodayAttendance(user.id, date);
     const now = new Date().toISOString();
     const record: AttendanceRecord = {
@@ -514,6 +551,8 @@ export const dataService = {
       checkOutStatus: opts.status,
       checkOutDistance: opts.distance,
       checkOutAccuracy: opts.accuracy,
+      checkOutLat: opts.lat,
+      checkOutLng: opts.lng,
       checkOutReason: opts.reason,
       createdAt: existing?.createdAt || now,
       updatedAt: now,

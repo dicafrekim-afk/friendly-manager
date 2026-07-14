@@ -3,15 +3,19 @@ import { LeaveType } from './types';
 import { GeoPoint } from './lib/geo';
 
 // 인사혁신처(정부세종2청사 17동) 근사 좌표 — OpenStreetMap 기준
-// 실제 출입구 위치와 5~15m 정도 차이가 날 수 있으므로,
-// 현장에서 카카오맵/구글맵으로 정확한 좌표를 확인해 보정하는 것을 권장합니다.
-export const OFFICE_LOCATION: GeoPoint = {
+// Super Admin이 출퇴근 위치를 변경하지 않았을 때 쓰이는 기본값(fallback)입니다.
+// 실제 출입구 위치와 5~15m 정도 차이가 날 수 있으니, 관리자 페이지에서 정확한 좌표로 보정하는 것을 권장합니다.
+export const DEFAULT_OFFICE_LOCATION: GeoPoint = {
   lat: 36.4839106,
   lng: 127.2611459,
 };
+export const DEFAULT_OFFICE_ADDRESS = '세종특별자치시 정부2청사로 13 (인사혁신처)';
 
-// 출퇴근 버튼 활성화 반경(m)
-export const ATTENDANCE_RADIUS_METERS = 50;
+// 출퇴근 버튼 활성화 반경(m) 기본값
+export const DEFAULT_ATTENDANCE_RADIUS_METERS = 50;
+
+// 관리자가 선택할 수 있는 반경 옵션(m)
+export const ATTENDANCE_RADIUS_OPTIONS = [30, 50, 70];
 
 export const LEAVE_TYPE_LABELS: Record<LeaveType, string> = {
   VACATION: '연차',

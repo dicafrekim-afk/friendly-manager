@@ -98,10 +98,25 @@ export interface AttendanceRecord {
   checkOutDistance?: number;
   checkInAccuracy?: number; // GPS accuracy(m)
   checkOutAccuracy?: number;
+  checkInLat?: number; // 출근 시점 위도 (법적 근거 자료용 원본 좌표)
+  checkInLng?: number;
+  checkOutLat?: number; // 퇴근 시점 위도
+  checkOutLng?: number;
   checkInReason?: string; // 수동 등록 사유
   checkOutReason?: string;
   approverId?: string;
   createdAt: string;
+  updatedAt: string;
+}
+
+// 출퇴근 기준 위치/반경 설정 — Super Admin이 변경 가능 (근무지 이전 대비)
+export interface AttendanceSettings {
+  id: string; // 'default' 고정
+  officeLat: number;
+  officeLng: number;
+  officeAddress: string;
+  radiusMeters: number;
+  updatedBy?: string;
   updatedAt: string;
 }
 

@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { User, AttendanceRecord } from '../types';
-import { dataService } from '../services/dataService';
-import { OFFICE_LOCATION, ATTENDANCE_RADIUS_METERS } from '../constants';
-import { getCurrentPosition, distanceInMeters, GeoError, CurrentPosition } from '../lib/geo';
+import { User, AttendanceRecord, AttendanceSettings } from '../types';
+import { dataService, isSuperAdmin } from '../services/dataService';
+import { ATTENDANCE_RADIUS_OPTIONS } from '../constants';
+import { getCurrentPosition, distanceInMeters, geocodeAddress, GeoError, CurrentPosition, GeocodeResult } from '../lib/geo';
 
 type GeoState = 'idle' | 'checking' | 'in_range' | 'out_of_range' | 'error';
 
@@ -27,10 +27,17 @@ const statusBadge = (status?: string) => {
   }
 };
 
+const mapEmbedUrl = (lat: number, lng: number) => {
+  const d = 0.003;
+  const bbox = `${lng - d}%2C${lat - d * 0.7}%2C${lng + d}%2C${lat + d * 0.7}`;
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat}%2C${lng}`;
+};
+
 const Attendance: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [today, setToday] = useState<AttendanceRecord | null>(null);
   const [history, setHistory] = useState<AttendanceRecord[]>([]);
+  const [settings, setSettings] = useState<AttendanceSettings | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [geoState, setGeoState] = useState<GeoState>('idle');
@@ -42,6 +49,16 @@ const Attendance: React.FC = () => {
   const [manualReason, setManualReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // 관리자 위치/반경 설정 폼
+  const [editingSettings, setEditingSettings] = useState(false);
+  const [addressInput, setAddressInput] = useState('');
+  const [geocoding, setGeocoding] = useState(false);
+  const [geocodeError, setGeocodeError] = useState('');
+  const [geocodeResults, setGeocodeResults] = useState<GeocodeResult[]>([]);
+  const [pendingLocation, setPendingLocation] = useState<GeocodeResult | null>(null);
+  const [pendingRadius, setPendingRadius] = useState<number>(50);
+  const [savingSettings, setSavingSettings] = useState(false);
+
   const fetchData = useCallback(async () => {
     const sessionStr = localStorage.getItem('friendly_current_session');
     if (!sessionStr) { setLoading(false); return; }
@@ -50,12 +67,15 @@ const Attendance: React.FC = () => {
 
     setLoading(true);
     try {
-      const [rec, all] = await Promise.all([
+      const [rec, all, settingsData] = await Promise.all([
         dataService.getTodayAttendance(user.id, todayStr()),
         dataService.getAttendanceRecords(),
+        dataService.getAttendanceSettings(),
       ]);
       setToday(rec);
       setHistory(all.filter(r => r.userId === user.id).slice(0, 14));
+      setSettings(settingsData);
+      setPendingRadius(settingsData.radiusMeters);
     } finally {
       setLoading(false);
     }
@@ -63,19 +83,19 @@ const Attendance: React.FC = () => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const checkLocation = useCallback(async () => {
+  const checkLocation = useCallback(async (office: AttendanceSettings) => {
     setGeoState('checking');
     setGeoMessage('');
     try {
       const pos = await getCurrentPosition();
       setPosition(pos);
-      const dist = distanceInMeters(pos, OFFICE_LOCATION);
+      const dist = distanceInMeters(pos, { lat: office.officeLat, lng: office.officeLng });
       setDistance(dist);
-      if (dist <= ATTENDANCE_RADIUS_METERS) {
+      if (dist <= office.radiusMeters) {
         setGeoState('in_range');
       } else {
         setGeoState('out_of_range');
-        setGeoMessage(`반경 ${ATTENDANCE_RADIUS_METERS}m 밖입니다 (현재 약 ${Math.round(dist)}m 떨어짐).`);
+        setGeoMessage(`반경 ${office.radiusMeters}m 밖입니다 (현재 약 ${Math.round(dist)}m 떨어짐).`);
       }
     } catch (e) {
       setGeoState('error');
@@ -83,13 +103,13 @@ const Attendance: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => { checkLocation(); }, [checkLocation]);
+  useEffect(() => { if (settings) checkLocation(settings); }, [settings, checkLocation]);
 
   const handleConfirmedAction = async (type: 'IN' | 'OUT') => {
     if (!currentUser || !position || distance === null) return;
     setSubmitting(true);
     try {
-      const opts = { status: 'CONFIRMED' as const, distance, accuracy: position.accuracy };
+      const opts = { status: 'CONFIRMED' as const, distance, accuracy: position.accuracy, lat: position.lat, lng: position.lng };
       if (type === 'IN') await dataService.checkIn(currentUser, todayStr(), opts);
       else await dataService.checkOut(currentUser, todayStr(), opts);
       await fetchData();
@@ -106,6 +126,8 @@ const Attendance: React.FC = () => {
         status: 'PENDING_MANUAL' as const,
         distance: distance ?? undefined,
         accuracy: position?.accuracy,
+        lat: position?.lat,
+        lng: position?.lng,
         reason: manualReason.trim(),
       };
       if (showManualModal === 'IN') await dataService.checkIn(currentUser, todayStr(), opts);
@@ -118,7 +140,52 @@ const Attendance: React.FC = () => {
     }
   };
 
-  if (loading) return (
+  const openSettingsEditor = () => {
+    if (!settings) return;
+    setAddressInput(settings.officeAddress);
+    setPendingLocation({ label: settings.officeAddress, lat: settings.officeLat, lng: settings.officeLng });
+    setPendingRadius(settings.radiusMeters);
+    setGeocodeResults([]);
+    setGeocodeError('');
+    setEditingSettings(true);
+  };
+
+  const handleGeocode = async () => {
+    if (!addressInput.trim()) return;
+    setGeocoding(true);
+    setGeocodeError('');
+    setGeocodeResults([]);
+    try {
+      const results = await geocodeAddress(addressInput.trim());
+      if (results.length === 0) setGeocodeError('검색 결과가 없습니다. 주소를 다르게 입력해 보세요.');
+      setGeocodeResults(results);
+    } catch (e) {
+      setGeocodeError('주소 검색 중 오류가 발생했습니다.');
+    } finally {
+      setGeocoding(false);
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    if (!currentUser || !pendingLocation) return;
+    setSavingSettings(true);
+    try {
+      await dataService.updateAttendanceSettings({
+        officeLat: pendingLocation.lat,
+        officeLng: pendingLocation.lng,
+        officeAddress: pendingLocation.label,
+        radiusMeters: pendingRadius,
+        updatedBy: currentUser.id,
+        updatedAt: new Date().toISOString(),
+      });
+      setEditingSettings(false);
+      await fetchData();
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  if (loading || !settings) return (
     <div className="flex items-center justify-center h-[60vh]">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
     </div>
@@ -126,13 +193,14 @@ const Attendance: React.FC = () => {
 
   const canCheckIn = geoState === 'in_range' && !today?.checkInTime;
   const canCheckOut = geoState === 'in_range' && !!today?.checkInTime && !today?.checkOutTime;
-  const accuracyRisky = position && position.accuracy > ATTENDANCE_RADIUS_METERS;
+  const accuracyRisky = position && position.accuracy > settings.radiusMeters;
+  const superAdm = currentUser ? isSuperAdmin(currentUser) : false;
 
   return (
     <div className="space-y-6 md:space-y-10 pb-20 animate-in fade-in duration-500">
       <div>
         <h1 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tight">출퇴근 관리</h1>
-        <p className="text-xs md:text-sm font-bold text-slate-400 mt-1">인사혁신처 반경 {ATTENDANCE_RADIUS_METERS}m 이내에서만 출퇴근 등록이 가능합니다.</p>
+        <p className="text-xs md:text-sm font-bold text-slate-400 mt-1">{settings.officeAddress} 반경 {settings.radiusMeters}m 이내에서만 출퇴근 등록이 가능합니다.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -163,7 +231,7 @@ const Attendance: React.FC = () => {
               {accuracyRisky && geoState !== 'checking' && (
                 <p className="text-[9px] font-bold text-amber-600 mt-1">GPS 오차범위(약 {Math.round(position!.accuracy)}m)가 반경보다 커서 측정이 부정확할 수 있습니다.</p>
               )}
-              <button onClick={checkLocation} className="mt-3 text-[10px] font-black text-indigo-600 underline underline-offset-2">위치 다시 확인</button>
+              <button onClick={() => checkLocation(settings)} className="mt-3 text-[10px] font-black text-indigo-600 underline underline-offset-2">위치 다시 확인</button>
             </div>
           </div>
 
@@ -233,6 +301,116 @@ const Attendance: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* 관리자용 위치/반경 설정 */}
+      {superAdm && (
+        <div className="bg-white p-8 md:p-10 rounded-[40px] shadow-sm border border-slate-100 space-y-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-sm font-black text-slate-900">출퇴근 위치 설정 (관리자)</h3>
+              <p className="text-[10px] font-bold text-slate-400 mt-1">근무지 이전 시 여기서 기준 위치와 반경을 변경할 수 있습니다.</p>
+            </div>
+            {!editingSettings && (
+              <button onClick={openSettingsEditor} className="px-5 py-3 bg-slate-900 text-white rounded-2xl font-black text-xs shadow-lg hover:bg-slate-800 transition-all">위치 변경</button>
+            )}
+          </div>
+
+          {!editingSettings ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-2 p-5 rounded-2xl bg-slate-50 border border-slate-100">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">현재 기준 주소</p>
+                <p className="text-xs font-bold text-slate-700">{settings.officeAddress}</p>
+                <p className="text-[9px] font-bold text-slate-400 mt-2">좌표: {settings.officeLat.toFixed(6)}, {settings.officeLng.toFixed(6)}</p>
+              </div>
+              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col justify-center items-center">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">활성화 반경</p>
+                <p className="text-2xl font-black text-indigo-600">{settings.radiusMeters}m</p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">주소 검색</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={addressInput}
+                    onChange={e => setAddressInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleGeocode(); } }}
+                    placeholder="예: 세종특별자치시 정부2청사로 13"
+                    className="flex-1 px-5 py-3 rounded-2xl bg-slate-50 border-2 border-slate-50 focus:border-indigo-600 focus:bg-white outline-none text-sm font-bold transition-all"
+                  />
+                  <button
+                    onClick={handleGeocode}
+                    disabled={geocoding || !addressInput.trim()}
+                    className={`px-6 py-3 rounded-2xl font-black text-xs shadow-lg transition-all ${geocoding || !addressInput.trim() ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
+                  >
+                    {geocoding ? '검색 중...' : '주소 검색'}
+                  </button>
+                </div>
+                {geocodeError && <p className="text-[10px] font-bold text-red-500">{geocodeError}</p>}
+              </div>
+
+              {geocodeResults.length > 0 && (
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">검색 결과 (선택)</label>
+                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1 scrollbar-hide">
+                    {geocodeResults.map((r, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setPendingLocation(r)}
+                        className={`w-full text-left px-4 py-3 rounded-xl border-2 text-[11px] font-bold transition-all ${pendingLocation?.lat === r.lat && pendingLocation?.lng === r.lng ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-slate-100 text-slate-500 hover:border-slate-200'}`}
+                      >
+                        {r.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {pendingLocation && (
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">지도 미리보기</label>
+                  <div className="rounded-2xl overflow-hidden border border-slate-100 h-64">
+                    <iframe
+                      title="office-location-preview"
+                      className="w-full h-full"
+                      src={mapEmbedUrl(pendingLocation.lat, pendingLocation.lng)}
+                    />
+                  </div>
+                  <p className="text-[9px] font-bold text-slate-400">좌표: {pendingLocation.lat.toFixed(6)}, {pendingLocation.lng.toFixed(6)}</p>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">활성화 반경</label>
+                <div className="grid grid-cols-3 gap-3">
+                  {ATTENDANCE_RADIUS_OPTIONS.map(r => (
+                    <button
+                      key={r}
+                      onClick={() => setPendingRadius(r)}
+                      className={`py-3 rounded-2xl border-2 text-sm font-black transition-all ${pendingRadius === r ? 'border-indigo-600 bg-indigo-50 text-indigo-600' : 'border-slate-100 text-slate-400 hover:border-slate-200'}`}
+                    >
+                      {r}m
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => setEditingSettings(false)} className="flex-1 py-4 text-xs font-black text-slate-400 bg-slate-100 rounded-2xl hover:bg-slate-200 transition-colors">취소</button>
+                <button
+                  onClick={handleSaveSettings}
+                  disabled={!pendingLocation || savingSettings}
+                  className={`flex-1 py-4 text-xs font-black rounded-2xl shadow-lg transition-all ${pendingLocation && !savingSettings ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                >
+                  {savingSettings ? '저장 중...' : '저장하기'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 수동 등록 모달 */}
       {showManualModal && (

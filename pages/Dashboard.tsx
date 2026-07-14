@@ -1,9 +1,15 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, LeaveRequest, Meeting, LeaveType } from '../types';
+import { User, LeaveRequest, Meeting, LeaveType, AttendanceRecord, AttendanceSettings } from '../types';
 import { dataService, isSuperAdmin } from '../services/dataService';
 import { LEAVE_TYPE_COLORS, LEAVE_TYPE_LABELS } from '../constants';
+import { getCurrentPosition, distanceInMeters, GeoError } from '../lib/geo';
+
+const todayStr = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 const KOREAN_HOLIDAYS = new Set([
   // 2025
@@ -46,6 +52,10 @@ const Dashboard: React.FC = () => {
   const [allMeetings, setAllMeetings] = useState<Meeting[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord | null>(null);
+  const [attendanceSettings, setAttendanceSettings] = useState<AttendanceSettings | null>(null);
+  const [attendanceBusy, setAttendanceBusy] = useState(false);
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<number | null>(new Date().getDate());
@@ -94,11 +104,42 @@ const Dashboard: React.FC = () => {
           // 세션에도 최신 정보 반영
           localStorage.setItem('friendly_current_session', JSON.stringify(freshUser));
         }
+
+        const [attRec, attSettings] = await Promise.all([
+          dataService.getTodayAttendance(uId, todayStr()).catch(() => null),
+          dataService.getAttendanceSettings().catch(() => null),
+        ]);
+        setTodayAttendance(attRec);
+        setAttendanceSettings(attSettings);
       }
-    } catch (err) { 
-      console.error('Dashboard data fetch failed', err); 
+    } catch (err) {
+      console.error('Dashboard data fetch failed', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAttendanceToggle = async () => {
+    if (!currentUser || !attendanceSettings || attendanceBusy) return;
+    const type: 'IN' | 'OUT' = !todayAttendance?.checkInTime ? 'IN' : 'OUT';
+    setAttendanceBusy(true);
+    try {
+      const pos = await getCurrentPosition();
+      const dist = distanceInMeters(pos, { lat: attendanceSettings.officeLat, lng: attendanceSettings.officeLng });
+      if (dist > attendanceSettings.radiusMeters) {
+        navigate('/attendance');
+        return;
+      }
+      const opts = { status: 'CONFIRMED' as const, distance: dist, accuracy: pos.accuracy, lat: pos.lat, lng: pos.lng };
+      if (type === 'IN') await dataService.checkIn(currentUser, todayStr(), opts);
+      else await dataService.checkOut(currentUser, todayStr(), opts);
+      const fresh = await dataService.getTodayAttendance(currentUser.id, todayStr());
+      setTodayAttendance(fresh);
+    } catch (e) {
+      // GPS 실패/거부 시 사유 입력이 가능한 출퇴근 페이지로 이동
+      navigate('/attendance');
+    } finally {
+      setAttendanceBusy(false);
     }
   };
 
@@ -248,6 +289,25 @@ const Dashboard: React.FC = () => {
           <h1 className="text-3xl md:text-5xl font-black mb-4">{user.name}님, 환영합니다!</h1>
           <p className="text-indigo-100/80 mb-8 font-medium">친절한 휴가 관리를 도와드릴게요.</p>
           <div className="flex flex-wrap gap-4">
+            {(() => {
+              const checkedIn = !!todayAttendance?.checkInTime;
+              const checkedOut = !!todayAttendance?.checkOutTime;
+              const done = checkedIn && checkedOut;
+              const label = attendanceBusy ? '확인 중...' : done ? '오늘 출퇴근 완료' : checkedIn ? '퇴근하기' : '출근하기';
+              return (
+                <button
+                  onClick={handleAttendanceToggle}
+                  disabled={done || attendanceBusy || !attendanceSettings}
+                  className={`px-8 py-4 rounded-[20px] font-black text-sm shadow-xl transition-all active:scale-95 ${
+                    done ? 'bg-white/20 text-white/70 cursor-not-allowed' :
+                    checkedIn ? 'bg-slate-900 text-white hover:bg-slate-800' :
+                    'bg-white text-indigo-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })()}
             <button onClick={() => navigate('/apply')} className="px-8 py-4 bg-white text-indigo-600 rounded-[20px] font-black text-sm shadow-xl hover:bg-slate-50 transition-all active:scale-95">휴가 신청</button>
           </div>
         </div>

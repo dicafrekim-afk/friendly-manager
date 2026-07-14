@@ -34,6 +34,23 @@ export class GeoError extends Error {
   }
 }
 
+export interface GeocodeResult extends GeoPoint {
+  label: string;
+}
+
+// OpenStreetMap Nominatim으로 주소 -> 후보 좌표 검색 (별도 API 키 불필요)
+export const geocodeAddress = async (address: string): Promise<GeocodeResult[]> => {
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&addressdetails=0&limit=5&countrycodes=kr`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('주소 검색에 실패했습니다.');
+  const data = await res.json();
+  return (data as any[]).map(item => ({
+    label: item.display_name as string,
+    lat: parseFloat(item.lat),
+    lng: parseFloat(item.lon),
+  }));
+};
+
 export const getCurrentPosition = (): Promise<CurrentPosition> => {
   return new Promise((resolve, reject) => {
     if (!('geolocation' in navigator)) {
